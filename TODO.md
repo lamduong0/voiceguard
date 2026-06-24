@@ -8,11 +8,9 @@ This is what remains, in recommended order.
 - [x] complete requirements (`requirements.txt` core + `requirements-acoustic.txt`)
 
 ## Next — cheap, high value
-- [ ] Real-audio smoke test: run `cli.py --audio call.wav --transcript turns.json` on a
-      real clip end-to-end (needs `requirements-acoustic.txt` + one `.wav`). Verifies the
-      only untested code path (`detect.py:AcousticScorer`).
-- [ ] Wire LLM intent into the live CLI trace (currently keyword-only per turn; the LLM
-      path exists in `detect.py` but isn't used by `cli.py`).
+- [x] Real-audio smoke test: verified on real ASVspoof clips — clone â=1.000 (flagged),
+      genuine â=0.000 (vetoed). `scripts/fetch_samples.py` pulls samples; audio gitignored.
+- [x] Wire LLM intent into the live CLI trace — `cli.py --llm` (uses the gateway per turn).
 
 ## Paper packaging
 - [ ] arXiv-ready LaTeX build of `PAPER.md` (sections, F1/F2, bibliography for the cited

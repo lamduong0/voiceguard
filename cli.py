@@ -11,7 +11,8 @@ over the turns heard so far, so the risk bar rises as a scam escalates; a genuin
 vetoed even when the words sound identical.
 """
 import json, argparse
-from voiceguard.detect import load_calibration, fuse, decide, keyword_intent, AcousticScorer
+from voiceguard.detect import (load_calibration, fuse, decide, keyword_intent,
+                               score_intent, AcousticScorer)
 
 SCAM_TURNS = [
     {"text": "Grandma, it's me!"},
@@ -46,10 +47,16 @@ def bar(x, width=22):
     return "#" * n + "." * (width - n)
 
 
-def play(acoustic, turns, cal, json_out=False):
+def play(acoustic, turns, cal, json_out=False, use_llm=False):
     trace, fired = [], None
+    intent_src = "keyword"
+    if use_llm and not json_out:
+        print("(scoring intent via LLM gateway)\n")
     for k, turn in enumerate(turns):
-        intent = keyword_intent(turns[:k + 1])
+        if use_llm:
+            intent, intent_src = score_intent(turns[:k + 1])
+        else:
+            intent = keyword_intent(turns[:k + 1])
         risk, p_clone = fuse(acoustic, intent, cal)
         lvl, msg = decide(risk)
         trace.append({"turn": k + 1, "text": turn["text"], "intent": round(intent, 3),
@@ -64,8 +71,9 @@ def play(acoustic, turns, cal, json_out=False):
     final_risk, _ = fuse(acoustic, keyword_intent(turns), cal)
     final_lvl, final_msg = decide(final_risk)
     if json_out:
-        print(json.dumps({"acoustic": round(acoustic, 3), "final_risk": round(final_risk, 3),
-                          "final_level": final_lvl, "fired_at_turn": fired, "trace": trace}, indent=2))
+        print(json.dumps({"acoustic": round(acoustic, 3), "intent_source": intent_src,
+                          "final_risk": round(final_risk, 3), "final_level": final_lvl,
+                          "fired_at_turn": fired, "trace": trace}, indent=2))
     else:
         tail = f"  (first flagged at turn {fired})" if fired else "  (never flagged)"
         print(f"\nVerdict: [{final_lvl}] {final_msg}{tail}")
@@ -77,6 +85,8 @@ def main():
     ap.add_argument("--audio")
     ap.add_argument("--transcript")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--llm", action="store_true",
+                    help="score intent via the LLM gateway (needs VG_LLM_KEY) instead of keywords")
     a = ap.parse_args()
     cal = load_calibration()
     if a.audio:
@@ -87,7 +97,7 @@ def main():
         acoustic = acoustic_from_data(is_clone)
     if not a.json:
         print(f"VoiceGuard  |  calibration c={cal['c']} g={cal['g']}  |  acoustic P(synthetic)={acoustic:.3f}\n")
-    play(acoustic, turns, cal, json_out=a.json)
+    play(acoustic, turns, cal, json_out=a.json, use_llm=a.llm)
 
 
 if __name__ == "__main__":

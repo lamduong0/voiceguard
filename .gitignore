@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 *.egg-info/
+# dataset audio — do not redistribute (license); regenerate via scripts/fetch_samples.py
+*.wav
+*.flac
