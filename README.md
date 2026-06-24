@@ -35,8 +35,7 @@ words sound like a scam (`genuine_scam`) — where linear (weighted-sum) fusion 
 Experimental arc complete and code-reviewed. Drafted: [PAPER.md](PAPER.md) /
 [paper/main.tex](paper/main.tex) (compiles to PDF via `tectonic`), [DISCLOSURE.md](DISCLOSURE.md)
 (narrow invention disclosure), [VENUE.md](VENUE.md), [DATA_SOURCING.md](DATA_SOURCING.md),
-figures F1/F2. Open: real paired scam audio (licensing-gated), final venue choice, NVIDIA
-OSPO review before the repo goes public.
+figures F1/F2. Open: real paired scam audio (licensing-gated) and a final venue choice.
 
 ## Layout
 

@@ -34,7 +34,7 @@ plan, ranked by feasibility.
 
 ## Constraints / notes
 - Licensing and consent are the gating issues, not engineering. CallHome and most named
-  corpora require LDC or dataset-specific agreements; route through NVIDIA's data/legal
+  corpora require LDC or dataset-specific agreements; route through the appropriate data/legal
   process before download or redistribution.
 - Do **not** commit any sourced audio to this repo (already gitignored: `*.wav`, `*.flac`).
 - Once data is in hand, the existing pipeline (`stage2_roc.py`, `stage2_harden.py`) runs

@@ -43,4 +43,4 @@ clone_benign). The constructed benchmark is itself a paper artifact.
 ## Compute plan (minimize spend)
 - v1: Azure OpenAI for intent + CPU/MPS acoustic inference. **No paid GPU.**
 - GPU only if we (a) fine-tune the acoustic model to the phone-scam domain, or (b) scale to
-  thousands of clips. Then: NVIDIA internal infra preferred over paid Brev.
+  thousands of clips. Then: prefer an owned/cheaper GPU over paid Brev.

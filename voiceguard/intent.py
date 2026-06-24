@@ -1,5 +1,5 @@
 """Intent signal for Stage 2: generate realistic call transcripts per archetype and
-score per-turn scam-intent with an LLM (NVIDIA inference gateway, OpenAI-compatible).
+score per-turn scam-intent with an LLM (any OpenAI-compatible gateway).
 
 This runs off-GPU. The model both writes the dialogue and rates each turn's scam
 intent, so the intent[t] series is a real model signal (not hand-set). Results are

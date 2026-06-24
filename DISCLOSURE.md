@@ -1,12 +1,12 @@
 # Invention disclosure (draft)
 
-> Internal draft for the NVIDIA invention-disclosure process. Scope is deliberately
-> narrow — the broad system is prior art (see §3). Fill in inventor names before filing.
+> Practice invention-disclosure draft — a personal learning project, not affiliated with
+> any employer. Scope is deliberately narrow — the broad system is prior art (see §3).
 
 **Title:** Multiplicative cross-modal fusion with an acoustic veto for distinguishing
 voice-clone scams from genuine high-urgency calls.
 
-**Inventor(s):** (dulam@nvidia.com)
+**Inventor(s):** lamduong0
 
 **Date:** 2026-06-23.
 
