@@ -19,7 +19,8 @@ This is what remains, in recommended order.
 
 ## GitHub
 - [x] LICENSE added (MIT, (c) NVIDIA Corporation — change holder if personal).
-- [ ] Create the GitHub repo + push (needs name / owner / visibility).
+- [x] Pushed to github.com/lamduong0/voiceguard (PRIVATE). Flip public or transfer to an
+      NVIDIA org after legal/OSPO sign-off.
 
 ## Stronger evidence — larger
 - [ ] Real paired scam audio for §4 (biggest validity gain; replaces the constructed
