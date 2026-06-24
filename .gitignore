@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 *.egg-info/
+# local planning notes — not for the remote
+TODO.md
 # dataset audio — do not redistribute (license); regenerate via scripts/fetch_samples.py
 *.wav
 *.flac
