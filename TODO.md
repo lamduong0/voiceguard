@@ -28,5 +28,5 @@ This is what remains, in recommended order.
 - [ ] Tighten claim-2 CIs: a 3rd detector and/or more clips (needs a fresh GPU instance).
 
 ## Optional
-- [ ] Interactive call-screen widget (drag acoustic/intent, watch the veto flip the
-      decision in real time), driven by `detect.py:fuse`.
+- [x] Interactive widget: `demo/voiceguard_demo.html` (standalone; drag acoustic/intent or
+      use presets, watch the veto flip the decision; same fuse math + calibration).

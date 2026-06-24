@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceGuard — interactive demo</title>
+</head>
+<body style="margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f2;color:#1a1a1a;padding:24px;">
+<div id="vg-root" style="max-width:760px;margin:0 auto;"></div>
+<script>
+const C = 0.2392, G = 6.46;            // calibration from real ASVspoof data
+const sig = x => 1/(1+Math.exp(-x));
+const PRESETS = {
+  clone_scam:   {a:1.00, i:1.00, label:"clone + scam (AI impostor)"},
+  genuine_scam: {a:0.00, i:1.00, label:"genuine + scam-sounding (real relative, same words)"},
+  genuine_benign:{a:0.00, i:0.05, label:"genuine + benign"},
+};
+function decide(r){
+  if(r>=0.60) return {lvl:"HIGH", col:"#A32D2D", bg:"#FCEBEB",
+    msg:"Likely AI-cloned voice in a scam. Issue the safe-word challenge; do not send money or codes."};
+  if(r>=0.30) return {lvl:"MEDIUM", col:"#854F0B", bg:"#FAEEDA",
+    msg:"Suspicious. Hang up and call the person back on a known number."};
+  return {lvl:"LOW", col:"#3B6D11", bg:"#EAF3DE",
+    msg:"No strong clone+scam signal. Proceed with normal caution."};
+}
+const root = document.getElementById("vg-root");
+root.innerHTML = `
+  <h2 style="font-weight:500;font-size:20px;margin:0 0 4px;">VoiceGuard — multiplicative acoustic veto</h2>
+  <p style="color:#5f5e5a;font-size:14px;margin:0 0 20px;">
+    risk = P(clone | acoustic) &times; scam-intent &nbsp;=&nbsp;
+    &sigma;(g&middot;(&acirc; &minus; c)) &middot; &icirc;. Drag the two signals; the genuine voice is vetoed even at max intent.</p>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:300px;background:#fff;border:1px solid #e3e1d9;border-radius:14px;padding:18px 20px;">
+      <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+        <button data-p="clone_scam"   class="vg-preset" style="cursor:pointer;font-size:12px;border:1px solid #d3d1c7;background:#fff;border-radius:8px;padding:6px 10px;">clone + scam</button>
+        <button data-p="genuine_scam" class="vg-preset" style="cursor:pointer;font-size:12px;border:1px solid #d3d1c7;background:#fff;border-radius:8px;padding:6px 10px;">genuine + same words</button>
+        <button data-p="genuine_benign" class="vg-preset" style="cursor:pointer;font-size:12px;border:1px solid #d3d1c7;background:#fff;border-radius:8px;padding:6px 10px;">genuine + benign</button>
+      </div>
+      <label style="font-size:13px;color:#5f5e5a;">acoustic P(synthetic)  <b id="vg-aval" style="color:#1a1a1a;float:right;">1.00</b></label>
+      <input id="vg-a" type="range" min="0" max="1" step="0.01" value="1" style="width:100%;margin:6px 0 16px;">
+      <label style="font-size:13px;color:#5f5e5a;">scam intent  <b id="vg-ival" style="color:#1a1a1a;float:right;">1.00</b></label>
+      <input id="vg-i" type="range" min="0" max="1" step="0.01" value="1" style="width:100%;margin:6px 0 4px;">
+      <p style="font-size:12px;color:#888780;margin:14px 0 0;">P(clone) = <span id="vg-pclone">0.99</span></p>
+    </div>
+    <div style="flex:1;min-width:300px;background:#fff;border:1px solid #e3e1d9;border-radius:14px;padding:18px 20px;">
+      <p style="font-size:13px;color:#5f5e5a;margin:0 0 6px;" id="vg-scenario">clone + scam (AI impostor)</p>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <span style="font-size:34px;font-weight:500;" id="vg-risk">0.99</span>
+        <span style="font-size:13px;color:#888780;">risk</span>
+      </div>
+      <div style="height:10px;background:#f1efe8;border-radius:99px;overflow:hidden;margin:10px 0 16px;">
+        <div id="vg-bar" style="height:100%;width:99%;background:#A32D2D;transition:width .12s;"></div>
+      </div>
+      <div id="vg-banner" style="border-radius:10px;padding:12px 14px;background:#FCEBEB;">
+        <div id="vg-lvl" style="font-weight:500;font-size:14px;color:#A32D2D;margin-bottom:4px;">HIGH</div>
+        <div id="vg-msg" style="font-size:13px;line-height:1.5;color:#791F1F;">Likely AI-cloned voice in a scam. Issue the safe-word challenge; do not send money or codes.</div>
+      </div>
+    </div>
+  </div>`;
+const $ = id => document.getElementById(id);
+function render(){
+  const a = parseFloat($("vg-a").value), i = parseFloat($("vg-i").value);
+  const pClone = sig(G*(a-C)), risk = pClone*i, d = decide(risk);
+  $("vg-aval").textContent = a.toFixed(2);
+  $("vg-ival").textContent = i.toFixed(2);
+  $("vg-pclone").textContent = pClone.toFixed(2);
+  $("vg-risk").textContent = risk.toFixed(2);
+  $("vg-bar").style.width = Math.round(risk*100)+"%";
+  $("vg-bar").style.background = d.col;
+  $("vg-lvl").textContent = d.lvl; $("vg-lvl").style.color = d.col;
+  $("vg-msg").textContent = d.msg; $("vg-msg").style.color = d.col;
+  $("vg-banner").style.background = d.bg;
+}
+$("vg-a").addEventListener("input", render);
+$("vg-i").addEventListener("input", render);
+document.querySelectorAll(".vg-preset").forEach(b => b.addEventListener("click", () => {
+  const p = PRESETS[b.dataset.p];
+  $("vg-a").value = p.a; $("vg-i").value = p.i; $("vg-scenario").textContent = p.label; render();
+}));
+render();
+</script>
+</body>
+</html>
