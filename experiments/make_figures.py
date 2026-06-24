@@ -25,7 +25,7 @@ def roc_curve(s, posm, negm):
 
 
 # ---- F1: ROC on ASVspoof (m1) ----
-data = [c for c in json.load(open("data/acoustic_events_m1.json")) if c["source"] == "asv"]
+data = [c for c in json.load(open("data/events_m1_600.json")) if c["source"] == "asv"]
 ds = build_dataset(data, pools, seed=0)
 a_mean, i_max = ds.acoustic.mean(1), ds.intent.max(1)
 y = np.where(ds.positive, 1, np.where(~ds.positive, 0, -1))

@@ -16,9 +16,10 @@ channel carries information. On a constructed benchmark over two public audio da
 two pretrained detectors, evaluated at a matched false-alarm rate with out-of-fold fusion
 fitting and bootstrap confidence intervals, we find: (1) fusion beats either modality
 alone; (2) a *multiplicative* fusion rule, in which the acoustic posterior can veto a
-high-intent call, beats linear (weighted-sum) fusion specifically when the detector is
-informative but imperfect (8/8 random seeds across two model×dataset settings), while the
-two tie when the detector is near-perfect or broken; and (3) detector generalization is
+high-intent call, beats linear (weighted-sum) fusion in two of the detector×dataset
+settings tested (8/8 random seeds, non-overlapping CIs), but the benefit is modest
+(≈0.12–0.14 TPR) and detector-specific — two other detectors show no gain, and the two
+tie when the detector is near-perfect or broken; and (3) detector generalization is
 the binding constraint and is strongly model-dependent. We release the benchmark
 construction and analysis to support reproducible, honest evaluation of such defenses.
 
@@ -134,34 +135,42 @@ pairing randomness from estimator noise.
 
 ### 6.1 Fusion beats single modality
 
-ASVspoof, detector m1, 8 seeds (mean ± std):
+ASVspoof, detector m1, 600 clips/class/source, 8 seeds (mean ± std):
 
 | method | AUC | TPR@10%FAR vs genuine_scam | TPR@10%FAR vs all-neg |
 |---|---|---|---|
-| acoustic_only | 0.839 ± 0.014 | 0.808 ± 0.015 | 0.425 ± 0.040 |
-| intent_only | 0.889 ± 0.005 | 0.000 ± 0.000 | 0.000 ± 0.000 |
-| parallel | 0.930 ± 0.014 | 0.517 ± 0.112 | 0.741 ± 0.112 |
-| bayesian | 0.961 ± 0.006 | 0.768 ± 0.035 | 0.860 ± 0.040 |
+| acoustic_only | 0.770 ± 0.006 | 0.679 ± 0.031 | 0.406 ± 0.026 |
+| intent_only | 0.894 ± 0.009 | 0.000 ± 0.000 | 0.000 ± 0.000 |
+| parallel | 0.933 ± 0.010 | 0.484 ± 0.067 | 0.708 ± 0.064 |
+| bayesian | 0.950 ± 0.005 | 0.606 ± 0.053 | 0.804 ± 0.035 |
 
 Intent alone is useless against `genuine_scam` (0.000); acoustic alone is weak against the
-broad negative set (0.425). Only fusion is strong on both axes. Figure F1
-(`figures/F1_roc.png`) shows the full ROC: the multiplicative rule dominates (AUC 0.963).
+broad negative set (0.406). Only fusion is strong on both axes. Figure F1
+(`figures/F1_roc.png`) shows the full ROC: the multiplicative rule dominates.
 
 ### 6.2 Multiplicative beats linear fusion (claim 2)
 
-bayesian − parallel, TPR@10%FAR vs `genuine_scam`, 8 seeds:
+bayesian − parallel, TPR@10%FAR vs `genuine_scam`, 8 seeds (600 clips for m1/m2; 300 for m3/m4):
 
 | setting | acoustic regime | bayesian − parallel | seeds won |
 |---|---|---|---|
-| m1 × ASVspoof | informative, imperfect | +0.251 | 8/8 |
-| m2 × In-the-Wild | informative, imperfect | +0.136 | 8/8 |
-| m2 × ASVspoof | near-perfect (acoustic 0.994) | −0.021 | tie (2/8) |
-| m1 × In-the-Wild | broken (AUC 0.519) | +0.001 | n/a (2/8) |
+| m1 × ASVspoof | informative, imperfect | +0.122 | 8/8 |
+| m2 × In-the-Wild | informative, imperfect | +0.135 | 8/8 |
+| m2 × ASVspoof | near-perfect | −0.010 | tie (1/8) |
+| m4 × ASVspoof | near-perfect (clean) | −0.018 | tie (2/8) |
+| m4 × In-the-Wild | informative (clean) | −0.031 | no win (3/8) |
+| m1 × In-the-Wild | broken | +0.033 | both ≈ 0 (8/8) |
 
-The multiplicative veto wins decisively in the imperfect-but-informative regime and is a
-wash when the detector is near-perfect (nothing to fix) or broken (nothing to use). On
-m1×ASVspoof the bootstrap CI for bayesian on `genuine_scam` [0.674, 0.858] does not overlap
-parallel's [0.451, 0.652].
+Where it appears (m1×ASVspoof, m2×In-the-Wild) the multiplicative veto wins across all 8
+seeds and the bootstrap CIs do not overlap (m1×ASVspoof at 600 clips: bayesian
+[0.604, 0.707] vs parallel [0.422, 0.533]). But the scaled-up run (4 detectors, 600 clips)
+shows the effect is **modest and not universal** — the honest headline: (i) the m1×ASVspoof
+gain shrank from +0.251 (300 clips) to +0.122 (600), so the small-sample estimate was
+inflated; (ii) only 2 of 4 detectors show a clean win — a 3rd (mo-thecreator) collapses both
+classes to P(synthetic)≈0 under noise (negative gain at every SNR), and a 4th (Hemgg) that
+*does* degrade gracefully still shows no win in its informative band. The veto helps in
+specific detector×regime combinations with a clear mechanism, but is not a general property
+of multiplicative fusion, and AUC level alone does not predict it.
 
 ### 6.3 Generalization is the binding constraint (claim 3)
 
@@ -219,11 +228,14 @@ prior art.
 ## 8. Conclusion
 
 Fusing conversational intent with an acoustic deepfake detector helps for voice-clone scam
-detection — but conditionally. A multiplicative acoustic veto is the right fusion form
-precisely when the detector is informative but imperfect, the regime real systems operate
-in. The dominant lever, however, is acoustic-detector generalization: when it fails, no
-fusion recovers it. Defenders should invest first in detectors that transfer to real-world
-deepfakes, and adopt multiplicative rather than linear fusion when they do.
+detection — but conditionally and modestly. A multiplicative acoustic veto can beat linear
+fusion when the detector is informative but imperfect, with a clear mechanism (acoustic
+evidence vetoes a high-intent genuine call); across four detectors it delivered a clean,
+seed-robust gain in two settings (≈0.12–0.14 TPR) and nothing in the other two, so it is a
+useful tool in the toolbox, not a universal rule. The dominant lever is acoustic-detector
+generalization: when it fails, no fusion recovers it. Defenders should invest first in
+detectors that transfer to real-world deepfakes, and treat multiplicative fusion as a
+mechanism to evaluate per detector rather than assume.
 
 ## Appendix A — the simulation non-result
 

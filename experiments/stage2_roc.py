@@ -98,8 +98,8 @@ def boot(fn, n):
     return np.mean(vals), lo, hi
 
 
-def run(source, pools):
-    data = [c for c in json.load(open("data/acoustic_events.json")) if c["source"] == source]
+def run(source, pools, path="data/acoustic_events.json"):
+    data = [c for c in json.load(open(path)) if c["source"] == source]
     ds = build_dataset(data, pools, seed=0)
     a_mean = ds.acoustic.mean(1)
     i_max = ds.intent.max(1)
@@ -125,9 +125,11 @@ def run(source, pools):
 
 
 def main():
+    import sys
+    path = sys.argv[1] if len(sys.argv) > 1 else "data/acoustic_events.json"
     pools = build_pools()
     for src in ["asv", "itw"]:
-        run(src, pools)
+        run(src, pools, path)
 
 
 if __name__ == "__main__":

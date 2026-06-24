@@ -26,12 +26,13 @@ score for the per-call decision \emph{is this a voice-clone scam?} The key to a 
 evaluation is a hard negative we call \textsc{genuine\_scam}---a real human voice making a
 scam-sounding call---which intent alone cannot resolve and on which only the acoustic
 channel carries information. On a constructed benchmark over two public audio datasets and
-two pretrained detectors, evaluated at a matched false-alarm rate with out-of-fold fusion
+four pretrained detectors, evaluated at a matched false-alarm rate with out-of-fold fusion
 fitting and bootstrap confidence intervals, we find: (1) fusion beats either modality
 alone; (2) a \emph{multiplicative} fusion rule, in which the acoustic posterior can veto a
-high-intent call, beats linear (weighted-sum) fusion specifically when the detector is
-informative but imperfect (8/8 random seeds across two model$\times$dataset settings),
-while the two tie when the detector is near-perfect or broken; and (3) detector
+high-intent call, beats linear (weighted-sum) fusion in two of the detector$\times$dataset
+settings tested (8/8 random seeds, non-overlapping CIs), but the gain is modest
+($\approx$0.12--0.14 TPR) and detector-specific---two other detectors show none, and the two
+tie when the detector is near-perfect or broken; and (3) detector
 generalization is the binding constraint and is strongly model-dependent. We release the
 benchmark construction and analysis to support reproducible, honest evaluation.
 \end{abstract}
@@ -130,21 +131,21 @@ AUC; bootstrap 95\% CIs; reporting over 8 random pairing seeds.
 
 \section{Results}
 \subsection{Fusion beats single modality}\label{sec:c1}
-ASVspoof, detector m1, 8 seeds (mean $\pm$ std):
+ASVspoof, detector m1, 600 clips/class/source, 8 seeds (mean $\pm$ std):
 \begin{center}\small
 \begin{tabular}{lccc}
 \toprule
 method & AUC & TPR@10\%FAR vs gen.\_scam & TPR@10\%FAR vs all-neg \\
 \midrule
-acoustic\_only & $0.839\pm0.014$ & $0.808\pm0.015$ & $0.425\pm0.040$ \\
-intent\_only & $0.889\pm0.005$ & $0.000\pm0.000$ & $0.000\pm0.000$ \\
-parallel & $0.930\pm0.014$ & $0.517\pm0.112$ & $0.741\pm0.112$ \\
-bayesian & $\mathbf{0.961\pm0.006}$ & $0.768\pm0.035$ & $\mathbf{0.860\pm0.040}$ \\
+acoustic\_only & $0.770\pm0.006$ & $0.679\pm0.031$ & $0.406\pm0.026$ \\
+intent\_only & $0.894\pm0.009$ & $0.000\pm0.000$ & $0.000\pm0.000$ \\
+parallel & $0.933\pm0.010$ & $0.484\pm0.067$ & $0.708\pm0.064$ \\
+bayesian & $\mathbf{0.950\pm0.005}$ & $0.606\pm0.053$ & $\mathbf{0.804\pm0.035}$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 Intent alone is useless against \textsc{genuine\_scam} (0.000); acoustic alone is weak
-against the broad negative set (0.425). Only fusion is strong on both axes
+against the broad negative set (0.406). Only fusion is strong on both axes
 (Figure~\ref{fig:roc}).
 
 \begin{figure}[t]\centering
@@ -154,28 +155,32 @@ against the broad negative set (0.425). Only fusion is strong on both axes
 \end{figure}
 
 \subsection{Multiplicative beats linear fusion}\label{sec:c2}
-bayesian $-$ parallel, TPR@10\%FAR vs \textsc{genuine\_scam}, 8 seeds:
+bayesian $-$ parallel, TPR@10\%FAR vs \textsc{genuine\_scam}, 8 seeds (600 clips for m1/m2; 300 for m3/m4):
 \begin{center}\small
 \begin{tabular}{llcc}
 \toprule
 setting & acoustic regime & bayesian $-$ parallel & seeds won \\
 \midrule
-m1 $\times$ ASVspoof & informative, imperfect & $+0.251$ & 8/8 \\
-m2 $\times$ In-the-Wild & informative, imperfect & $+0.136$ & 8/8 \\
-m2 $\times$ ASVspoof & near-perfect (acoustic 0.994) & $-0.021$ & tie \\
-m1 $\times$ In-the-Wild & broken (AUC 0.519) & $+0.001$ & n/a \\
+m1 $\times$ ASVspoof & informative, imperfect & $+0.122$ & 8/8 \\
+m2 $\times$ In-the-Wild & informative, imperfect & $+0.135$ & 8/8 \\
+m2 $\times$ ASVspoof & near-perfect & $-0.010$ & tie \\
+m4 $\times$ ASVspoof & near-perfect (clean) & $-0.018$ & tie \\
+m4 $\times$ In-the-Wild & informative (clean) & $-0.031$ & no win \\
+m1 $\times$ In-the-Wild & broken & $+0.033$ & both $\approx$0 \\
 \bottomrule
 \end{tabular}
 \end{center}
-The multiplicative veto wins decisively in the informative-but-imperfect regime and is a
-wash when the detector is near-perfect (nothing to fix) or broken (nothing to use). On
-m1$\times$ASVspoof the bootstrap CI for bayesian on \textsc{genuine\_scam} $[0.674,0.858]$
-does not overlap parallel's $[0.451,0.652]$. A third detector (mo-thecreator) exposes a
-boundary: near-perfect on clean ASVspoof (tie), it collapses both classes to
-P(synthetic)\,$\approx$\,0 under additive noise rather than degrading gracefully, leaving no
-graded signal---so its gain is negative at every SNR. The veto's benefit is thus conditional
-on the detector \emph{retaining a graded informative signal} in the imperfect regime (true
-for m1, m2; false for m3), not merely on being ``imperfect.''
+Where it appears (m1$\times$ASVspoof, m2$\times$In-the-Wild) the multiplicative veto wins
+across all 8 seeds and the bootstrap CIs do not overlap (m1$\times$ASVspoof at 600 clips:
+bayesian $[0.604,0.707]$ vs parallel $[0.422,0.533]$). But the scaled-up run (four
+detectors, 600 clips) shows the effect is \emph{modest and not universal}. (i) With more
+data the m1$\times$ASVspoof gain shrank from $+0.251$ (300 clips) to $+0.122$ (600), so the
+small-sample estimate was inflated. (ii) Only two of four detectors show a clean win: a
+third (mo-thecreator) collapses both classes to P(synthetic)\,$\approx$\,0 under additive
+noise rather than degrading gracefully (negative gain at every SNR), and a fourth (Hemgg)
+that \emph{does} degrade gracefully still shows no win in its informative band. The veto
+helps in specific detector$\times$regime combinations with a clear mechanism, but is not a
+general property of multiplicative fusion, and AUC level alone does not predict it.
 
 \subsection{Generalization is the binding constraint}\label{sec:c3}
 Mean P(synthetic) by class:
@@ -211,18 +216,20 @@ detector is uncertain but not useless.}
 \section{Limitations and ethics}
 The benchmark pairs independent audio and transcripts, removing natural acoustic--content
 correlation; real paired scam recordings would strengthen the evidence. The intent signal
-is LLM-generated and LLM-scored, hence somewhat idealized. We evaluate three detectors, two
+is LLM-generated and LLM-scored, hence somewhat idealized. We evaluate four detectors, two
 datasets, and one language, at modest scale (multi-seed reporting), and one degradation type
-(additive noise); the veto's benefit is conditional on graceful detector degradation, which
-not all detectors exhibit (\S\ref{sec:c2}). We study defense only,
+(additive noise); the veto's benefit is detector-specific (a clean win in two of four
+detectors) and is not predicted by graceful degradation or AUC level alone (\S\ref{sec:c2}).
+We study defense only,
 introduce no new cloning capability, use public consented datasets, and release the
 methodology to help defenders and establish prior art.
 
 \section{Conclusion}
-Fusing intent with an acoustic deepfake detector helps---conditionally. A multiplicative
-acoustic veto is the right form precisely when the detector is informative but imperfect,
-the regime real systems operate in. The dominant lever is acoustic-detector generalization:
-when it fails, no fusion recovers it.
+Fusing intent with an acoustic deepfake detector can help---conditionally and modestly. A
+multiplicative acoustic veto beat linear fusion in two of four detectors
+($\approx$0.12--0.14 TPR, seed-robust, CIs separate) with a clear mechanism, and did nothing
+in the other two, so it is a tool to evaluate per detector rather than a universal rule. The
+dominant lever is acoustic-detector generalization: when it fails, no fusion recovers it.
 
 \appendix
 \section{The simulation non-result}\label{sec:appendix}

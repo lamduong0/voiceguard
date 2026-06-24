@@ -56,45 +56,52 @@ Four per-call scorers: `acoustic_only` (mean P-synthetic), `intent_only` (max in
 
 ## Claim 1 — fusion > single modality
 
-ASVspoof, detector m1, 8 pairing seeds (mean ± std):
+ASVspoof, detector m1, 600 clips/class/source, 8 pairing seeds (mean ± std):
 
 | method | AUC | TPR@10%FAR vs genuine_scam | TPR@10%FAR vs all-neg |
 |---|---|---|---|
-| acoustic_only | 0.839 ± 0.014 | 0.808 ± 0.015 | 0.425 ± 0.040 |
-| intent_only | 0.889 ± 0.005 | **0.000 ± 0.000** | 0.000 ± 0.000 |
-| parallel | 0.930 ± 0.014 | 0.517 ± 0.112 | 0.741 ± 0.112 |
-| **bayesian** | **0.961 ± 0.006** | 0.768 ± 0.035 | **0.860 ± 0.040** |
+| acoustic_only | 0.770 ± 0.006 | 0.679 ± 0.031 | 0.406 ± 0.026 |
+| intent_only | 0.894 ± 0.009 | **0.000 ± 0.000** | 0.000 ± 0.000 |
+| parallel | 0.933 ± 0.010 | 0.484 ± 0.067 | 0.708 ± 0.064 |
+| **bayesian** | **0.950 ± 0.005** | 0.606 ± 0.053 | **0.804 ± 0.035** |
 
 `intent_only` → 0.000 against genuine_scam (cannot tell a clone-scam from a real-voice
-scam); `acoustic_only` → 0.425 against the broad negative set. Fusion is the only thing
+scam); `acoustic_only` → 0.406 against the broad negative set. Fusion is the only thing
 strong on both axes.
 
 ## Claim 2 — multiplicative > linear fusion (the patent-relevant mechanism)
 
-bayesian − parallel, TPR@10%FAR vs genuine_scam, 8 seeds:
+bayesian − parallel, TPR@10%FAR vs genuine_scam, 8 seeds (600 clips/class/source for
+m1/m2; 300 for m3/m4):
 
 | setting | acoustic regime | bayesian − parallel | seeds bayesian wins |
 |---|---|---|---|
-| m1 × ASVspoof | informative, imperfect | **+0.251** | **8/8** |
-| m2 × In-the-Wild | informative, imperfect | **+0.136** | **8/8** |
-| m2 × ASVspoof | near-perfect (acoustic_only 0.994) | −0.021 | 2/8 (tie) |
-| m1 × In-the-Wild | broken (AUC 0.519) | +0.001 | 2/8 (n/a) |
+| m1 × ASVspoof | informative, imperfect | **+0.122** | **8/8** |
+| m2 × In-the-Wild | informative, imperfect | **+0.135** | **8/8** |
+| m2 × ASVspoof | near-perfect | −0.010 | 1/8 (tie) |
+| m4 × ASVspoof | near-perfect (clean) | −0.018 | 2/8 (tie) |
+| m4 × In-the-Wild | informative (clean) | −0.031 | 3/8 (no win) |
+| m1 × In-the-Wild | broken | +0.033 | 8/8 (both ≈ 0) |
 
-The Bayesian multiplicative veto wins decisively **exactly when the detector is
-informative but imperfect** — the realistic regime — because acoustic evidence can veto
-a high-intent genuine call, where linear mixing dilutes it. The single-seed run with
-bootstrap CIs corroborates: on m1×ASV the bayesian genuine_scam CI [0.674, 0.858] does
-not overlap parallel's [0.451, 0.652]. Ties when the detector is near-perfect (nothing to
-fix) or broken (nothing to use) are expected and reported, not hidden.
+Where it appears (m1×ASV, m2×ITW) the multiplicative veto wins across all 8 seeds and the
+bootstrap CIs do not overlap (m1×ASV at 600 clips: bayesian [0.604, 0.707] vs parallel
+[0.422, 0.533]) — acoustic evidence vetoes a high-intent genuine call where linear mixing
+dilutes it.
 
-**A 3rd detector exposes a boundary (mo-thecreator; `stage2_degrade.py` on
-`acoustic_degrade_m3.json`).** Near-perfect on clean ASVspoof (clone P_fake 1.0) → gain
-−0.026 (tie, as expected). But under additive noise m3 does *not* degrade gracefully — both
-classes collapse to P_fake ≈ 0, leaving no graded acoustic signal — and gain is negative at
-every SNR (−0.02 to −0.06). So claim 2 is conditional not merely on "imperfect" but on the
-detector **retaining a graded, informative signal** in the imperfect regime (true for
-m1/m2, false for m3). The advantage is real but **not universal across detectors**; the
-degradation *behavior* matters, and white noise is one specific stressor.
+**But the scaled-up run (4 detectors, 600 clips) makes the effect modest and clearly
+*not universal* — this is the honest headline:**
+- **Magnitude shrank with more data.** m1×ASV was +0.251 at 300 clips; at 600 it is +0.122.
+  The small-sample estimate was inflated. m2×ITW is stable (+0.136 → +0.135).
+- **Only 2 of 4 detectors show a clean win.** A 4th detector (m4, Hemgg) that separates both
+  datasets and degrades *gracefully* still shows **no** win — near-perfect/tie on clean
+  (both sources, −0.018 / −0.031) and ≈0 gain across its whole degradation sweep. A 3rd (m3,
+  mo-thecreator) collapses under noise (both classes → P_fake ≈ 0, no graded signal) and
+  never wins. AUC level alone does not predict where the veto helps.
+
+Net: claim 2 holds where demonstrated (real, seed-robust, mechanistically motivated, CIs
+separate) but is **detector/setting-specific and modest (~+0.12–0.14)**, not a general
+property of multiplicative fusion. The honest contribution is "it can help, here is the
+mechanism and where it shows up," not "it always helps."
 
 ## Claim 3 — generalization is the binding constraint (and model-dependent)
 
