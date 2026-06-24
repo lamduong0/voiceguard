@@ -13,9 +13,13 @@ This is what remains, in recommended order.
 - [x] Wire LLM intent into the live CLI trace — `cli.py --llm` (uses the gateway per turn).
 
 ## Paper packaging
-- [ ] arXiv-ready LaTeX build of `PAPER.md` (sections, F1/F2, bibliography for the cited
-      patents and datasets, abstract/formatting).
+- [x] arXiv-ready LaTeX source: `paper/main.tex` + `references.bib` (builds on Overleaf /
+      TeX Live; no local toolchain here).
 - [ ] Pick a target venue; tailor scope and length to its CFP / page limit.
+
+## GitHub
+- [x] LICENSE added (MIT, (c) NVIDIA Corporation — change holder if personal).
+- [ ] Create the GitHub repo + push (needs name / owner / visibility).
 
 ## Stronger evidence — larger
 - [ ] Real paired scam audio for §4 (biggest validity gain; replaces the constructed
