@@ -104,8 +104,20 @@ if the filed disclosure or any preprint cited it, correct to +0.122.
 - Learned monotone gating g(·) instead of the sigmoid form.
 - On-device vs. server execution; provider-agnostic intent model.
 
-## 9. Filing recommendation
-File as a **narrow** disclosure on claims 1–2 (the mechanism + calibrated center). Pair
-with an **arXiv defensive publication** of `RESULTS.md`/the paper so the idea is protected
-even if the patent is not pursued or is narrowed on obviousness. Do **not** assert the
-broad live-fusion-alert system (prior art).
+## 9. Filing recommendation (reassessed after the scale-up)
+The larger run weakened the empirical non-obviousness case: the multiplicative-veto gain is
+modest (~+0.12–0.14) and shows in only 2 of 4 detectors, so "a skilled person would not
+expect this" is harder to argue broadly. Recommended route, in order:
+
+1. **Defensive publication — primary.** arXiv the paper (corrected numbers; see `ERRATA.md`)
+   to establish prior art and stop others from patenting the mechanism. Lowest cost, and it
+   fully achieves the protective goal regardless of patentability.
+2. **Narrow patent — secondary / optional.** If pursued, claim only claims 1–2 (the
+   multiplicative-veto rule + calibrated center), and support it with the settings where it
+   wins (MelodyMachine×ASVspoof, wav2vec2-xlsr×In-the-Wild; separated bootstrap CIs). Expect
+   obviousness pressure; detector-specificity narrows both the claim and the rebuttal.
+3. Do **not** assert the broad live-fusion-alert system — prior art (US12284313B1,
+   US10455085B1, US9692885B2).
+
+Discuss with patent counsel before any prosecution spend; given (1) achieves the protective
+goal cheaply, the bar for pursuing (2) should be a specific commercial/strategic reason.
