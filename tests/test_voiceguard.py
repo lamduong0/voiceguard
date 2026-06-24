@@ -85,6 +85,14 @@ def test_tpr_at_far_empty_negatives_is_nan():
     assert math.isnan(tpr_at_far(s, pos, np.array([False, False]), 0.1))
 
 
+def test_keyword_intent_ignores_contraction_wont():
+    # regression: the \bwon\b lottery cue must not fire on the contraction "won't",
+    # but must still catch a genuine "won a prize" scam.
+    from voiceguard.detect import keyword_intent
+    assert keyword_intent([{"text": "Why won't you pick up?"}]) == 0.05
+    assert keyword_intent([{"text": "You won a prize, claim your gift!"}]) > 0.5
+
+
 def test_tune_respects_far_budget():
     ds = generate_dataset(n=600, seed=2)
     best = tune(parallel_fire,

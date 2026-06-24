@@ -34,7 +34,7 @@ def fuse(acoustic, intent, cal):
 SCAM_CUES = [r"gift card", r"wire", r"\bbail\b", r"\barrested\b", r"urgent", r"right now",
              r"don'?t tell", r"do not tell", r"secret", r"transfer", r"bitcoin", r"crypto",
              r"social security", r"\bIRS\b", r"verify your account", r"send money",
-             r"western union", r"\bgift\b", r"\bwon\b", r"\bfee\b"]
+             r"western union", r"\bgift\b", r"\bwon\b(?!['’])", r"\bfee\b"]  # \bwon\b excludes "won't"
 
 
 def keyword_intent(turns):
@@ -88,7 +88,7 @@ def transcribe(audio_path, model_size="base"):
     from faster_whisper import WhisperModel
     wav, _ = librosa.load(audio_path, sr=16000, mono=True)
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _ = model.transcribe(wav, language="en")
+    segments, _ = model.transcribe(wav)   # auto-detect language (don't force English)
     return [{"t": float(s.start), "text": s.text.strip()} for s in segments if s.text.strip()]
 
 

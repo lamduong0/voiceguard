@@ -42,8 +42,9 @@ on CPU.
   claim 3, AUC 0.519, scores can invert). A real phone call is out-of-distribution. For a
   trustworthy acoustic read, score with **m2** (`Gustking/wav2vec2-large-xlsr-deepfake-audio-classification`)
   via `scripts/score_local.py` and compare. Don't quote m1's `p_clone` as fact.
-- **Keyword intent over-fires.** `keyword_intent` flagged a benign call because cue `\bwon\b`
-  matched "won't". For real transcripts prefer `--llm` (needs `VG_LLM_KEY`) over keyword intent.
+- **Keyword intent is coarse** (single-word cues → easy false positives; a `\bwon\b`-matches-
+  "won't" bug was fixed, but the failure class remains). For real transcripts prefer `--llm`
+  (needs `VG_LLM_KEY`) over the keyword scorer.
 - **MP3 artifacts** can spike a window or two; a lossless WAV gives a cleaner per-window read.
   Cross-check the timestamps where acoustic spikes against the transcript — a telephony "this
   number is disconnected" message is genuinely synthetic and *should* score high.
