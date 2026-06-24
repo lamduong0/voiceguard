@@ -67,6 +67,7 @@ PYTHONPATH=. .venv/bin/python cli.py --scenario clone_scam     # AI impostor -> 
 PYTHONPATH=. .venv/bin/python cli.py --scenario genuine_scam   # real relative, same words -> vetoed
 PYTHONPATH=. .venv/bin/python cli.py --scenario benign
 PYTHONPATH=. .venv/bin/python cli.py --audio call.wav --transcript turns.json   # real model
+PYTHONPATH=. .venv/bin/python cli.py --audio call.mp3 --asr                      # transcribe (ASR) + score real words
 PYTHONPATH=. .venv/bin/python cli.py --scenario clone_scam --json               # machine-readable
 ```
 One-shot scorer (three scenarios side by side):

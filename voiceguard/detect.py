@@ -81,6 +81,17 @@ def decide(risk):
     return ("LOW", "No strong clone+scam signal. Proceed with normal caution.")
 
 
+def transcribe(audio_path, model_size="base"):
+    """ASR an audio file into timestamped turns via faster-whisper (CPU). Returns
+    [{"t": start_s, "text": ...}]; pass these as the intent transcript."""
+    import librosa
+    from faster_whisper import WhisperModel
+    wav, _ = librosa.load(audio_path, sr=16000, mono=True)
+    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+    segments, _ = model.transcribe(wav, language="en")
+    return [{"t": float(s.start), "text": s.text.strip()} for s in segments if s.text.strip()]
+
+
 class AcousticScorer:
     """Real pretrained anti-spoofing model; per-1s-window P(synthetic), averaged."""
 

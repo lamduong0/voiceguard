@@ -12,7 +12,7 @@ vetoed even when the words sound identical.
 """
 import json, argparse
 from voiceguard.detect import (load_calibration, fuse, decide, keyword_intent,
-                               score_intent, AcousticScorer)
+                               score_intent, AcousticScorer, transcribe)
 
 SCAM_TURNS = [
     {"text": "Grandma, it's me!"},
@@ -87,11 +87,20 @@ def main():
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--llm", action="store_true",
                     help="score intent via the LLM gateway (needs VG_LLM_KEY) instead of keywords")
+    ap.add_argument("--asr", action="store_true",
+                    help="transcribe the --audio file (faster-whisper) and score its real words")
     a = ap.parse_args()
     cal = load_calibration()
     if a.audio:
         acoustic = AcousticScorer().score(a.audio)
-        turns = json.load(open(a.transcript)) if a.transcript else [{"text": "(no transcript)"}]
+        if a.asr:
+            turns = transcribe(a.audio)
+            if not a.json:
+                print("(transcript from ASR of the audio)\n")
+        elif a.transcript:
+            turns = json.load(open(a.transcript))
+        else:
+            turns = [{"text": "(no transcript)"}]
     else:
         is_clone, turns = SCENARIOS[a.scenario]
         acoustic = acoustic_from_data(is_clone)
