@@ -61,7 +61,7 @@ ASVspoof, detector m1, 8 pairing seeds (mean ± std):
 | method | AUC | TPR@10%FAR vs genuine_scam | TPR@10%FAR vs all-neg |
 |---|---|---|---|
 | acoustic_only | 0.839 ± 0.014 | 0.808 ± 0.015 | 0.425 ± 0.040 |
-| intent_only | 0.828 ± 0.009 | **0.000 ± 0.000** | 0.000 ± 0.000 |
+| intent_only | 0.889 ± 0.005 | **0.000 ± 0.000** | 0.000 ± 0.000 |
 | parallel | 0.930 ± 0.014 | 0.517 ± 0.112 | 0.741 ± 0.112 |
 | **bayesian** | **0.961 ± 0.006** | 0.768 ± 0.035 | **0.860 ± 0.040** |
 

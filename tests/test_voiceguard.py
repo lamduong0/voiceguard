@@ -3,6 +3,8 @@ from voiceguard.simulate import generate_dataset
 from voiceguard.fusion import running_mean, adaptive_fire, bayesian_fire, parallel_fire
 from voiceguard.evaluate import first_true, evaluate, tune
 from voiceguard.realsignals import align_to_timeline, build_matrices, RealCall
+from experiments.stage2_roc import auc, tpr_at_far
+import math
 
 
 def test_running_mean():
@@ -62,6 +64,25 @@ def test_build_matrices_shapes():
     acoustic, intent, is_clone, is_scam, call_type = build_matrices(calls, T=8)
     assert acoustic.shape == intent.shape == (1, 8)
     assert is_clone[0] and is_scam[0]
+
+
+def test_auc_handles_ties():
+    # positives [1,2], negatives [1,3]: tie-averaged AUC = 0.375 (sequential-rank bug = 0.25).
+    s = np.array([1.0, 2.0, 1.0, 3.0])
+    pos = np.array([True, True, False, False])
+    assert abs(auc(s, pos, ~pos) - 0.375) < 1e-9
+
+
+def test_auc_perfect_separation():
+    s = np.array([2.0, 3.0, 0.0, 1.0])
+    pos = np.array([True, True, False, False])
+    assert auc(s, pos, ~pos) == 1.0
+
+
+def test_tpr_at_far_empty_negatives_is_nan():
+    s = np.array([0.9, 0.8])
+    pos = np.array([True, True])
+    assert math.isnan(tpr_at_far(s, pos, np.array([False, False]), 0.1))
 
 
 def test_tune_respects_far_budget():

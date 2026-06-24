@@ -1,11 +1,13 @@
 """Stage 2 real-data result: parallel vs bayesian on real acoustic (deepfake model on
 ASVspoof / In-the-Wild) paired with real intent (LLM-scored transcripts).
 
-Pairing recreates the four Stage 1 archetypes from real signals:
-  clone  -> clone_scam (p=0.85) | clone_benign
-  genuine-> genuine_benign (p=0.66) | genuine_urgent (hard negative)
-Positive = clone_scam. Same tune/metrics/controllers as Stage 1; tuned to equal
-hard-negative FAR. Reported per source.
+Pairing recreates the Stage 1 archetypes from real signals:
+  clone  -> clone_scam (p=0.7) | clone_benign
+  genuine-> genuine_benign (p=0.5) | genuine_urgent (0.25) | genuine_scam (0.25)
+Positive = clone_scam. The decisive hard negative for the rigorous analysis is
+genuine_scam (genuine voice, scam words) -- see stage2_roc.py / stage2_harden.py. The
+Stage 1 path constrains FAR on genuine_urgent instead; the two notions differ (urgent-
+but-real vs scam-words-but-real). Same tune/metrics/controllers as Stage 1.
 """
 import json, random, numpy as np
 from voiceguard.simulate import Dataset

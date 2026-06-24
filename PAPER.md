@@ -139,7 +139,7 @@ ASVspoof, detector m1, 8 seeds (mean ± std):
 | method | AUC | TPR@10%FAR vs genuine_scam | TPR@10%FAR vs all-neg |
 |---|---|---|---|
 | acoustic_only | 0.839 ± 0.014 | 0.808 ± 0.015 | 0.425 ± 0.040 |
-| intent_only | 0.828 ± 0.009 | 0.000 ± 0.000 | 0.000 ± 0.000 |
+| intent_only | 0.889 ± 0.005 | 0.000 ± 0.000 | 0.000 ± 0.000 |
 | parallel | 0.930 ± 0.014 | 0.517 ± 0.112 | 0.741 ± 0.112 |
 | bayesian | 0.961 ± 0.006 | 0.768 ± 0.035 | 0.860 ± 0.040 |
 
@@ -187,8 +187,8 @@ to chance, and measure the multiplicative−linear gain (bayesian − parallel, 
 | ASVspoof | 20 dB | 0.860 | 0.828 | 0.707 | +0.121 |
 | ASVspoof | 15 dB | 0.796 | 0.563 | 0.392 | **+0.171** |
 | ASVspoof | 10 dB | 0.680 | 0.214 | 0.242 | −0.028 |
-| ASVspoof | 5 dB | 0.539 | 0.088 | 0.125 | −0.037 |
-| ASVspoof | 0 dB | 0.474 | 0.068 | 0.063 | +0.005 |
+| ASVspoof | 5 dB | 0.539 | 0.088 | 0.000 | +0.088 |
+| ASVspoof | 0 dB | 0.474 | 0.068 | 0.000 | +0.068 |
 | In-the-Wild | clean | 0.805 | 0.675 | 0.586 | +0.089 |
 | In-the-Wild | 20 dB | 0.752 | 0.510 | 0.481 | +0.029 |
 | In-the-Wild | 15 dB | 0.728 | 0.455 | 0.396 | +0.059 |
@@ -199,13 +199,12 @@ to chance, and measure the multiplicative−linear gain (bayesian − parallel, 
 The gain is largest in the **informative-but-imperfect band** (acoustic AUC ≈ 0.73–0.86):
 it peaks at +0.171 on ASVspoof (15 dB) and is positive across In-the-Wild's entire
 informative range. It collapses to a tie when the detector is near-perfect (ASVspoof clean,
-AUC 0.875, +0.010) and when it is at chance (0 dB, ~0). On ASVspoof there is a small
-negative dip in the weak-but-not-chance band (AUC 0.54–0.68, −0.03 to −0.04), where absolute
-detection is low for both rules. The overall shape — rising from the high-quality end,
-peaking where the detector is uncertain, then vanishing toward chance — matches the §6.2
-prediction: the multiplicative veto pays off precisely when the acoustic detector is
-uncertain but not useless. Figure F2 (`figures/F2_gain_vs_quality.png`) plots gain against
-acoustic AUC.
+AUC 0.875, +0.010), and there is a small negative dip at 10 dB (AUC 0.68, −0.028). Below
+that the detector is at chance (AUC ≤ 0.54) and both rules detect almost nothing (TPR ≲ 0.1),
+so the few-percent gains there are unstable rather than meaningful. The overall shape —
+rising from the high-quality end and peaking where the detector is uncertain but not useless
+— matches the §6.2 prediction. Figure F2 (`figures/F2_gain_vs_quality.png`) plots gain
+against acoustic AUC.
 
 ## 7. Limitations & ethics
 

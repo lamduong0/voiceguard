@@ -9,7 +9,7 @@ so we score each CALL as a whole and compare methods fairly:
 
 Fair comparison: out-of-fold scoring (2-fold, no leakage), then on the pooled
 out-of-fold scores report AUC and TPR at a MATCHED false-alarm rate (on the
-genuine_urgent hard negatives, and on all negatives), each with bootstrap 95% CIs.
+genuine_scam hard negatives, and on all negatives), each with bootstrap 95% CIs.
 """
 import json, numpy as np
 from voiceguard.intent import build_pools
@@ -20,17 +20,36 @@ B = 2000
 RNG = np.random.default_rng(0)
 
 
+def _avg_ranks(x):
+    """1-indexed ranks with ties averaged (required for a correct Mann-Whitney/AUC;
+    plain sort-order ranks bias AUC low whenever scores tie)."""
+    order = np.argsort(x, kind="mergesort")
+    sx = x[order]
+    ranks_sorted = np.empty(len(x), float)
+    i = 0
+    while i < len(x):
+        j = i
+        while j < len(x) and sx[j] == sx[i]:
+            j += 1
+        ranks_sorted[i:j] = (i + j + 1) / 2.0   # mean of ranks (i+1 .. j)
+        i = j
+    out = np.empty(len(x), float)
+    out[order] = ranks_sorted
+    return out
+
+
 def auc(scores, pos, neg):
     sp, sn = scores[pos], scores[neg]
     if not len(sp) or not len(sn):
         return float("nan")
-    order = np.argsort(np.concatenate([sp, sn]), kind="mergesort")
-    ranks = np.empty(len(order)); ranks[order] = np.arange(1, len(order) + 1)
+    ranks = _avg_ranks(np.concatenate([sp, sn]))
     r_pos = ranks[:len(sp)].sum()
     return (r_pos - len(sp) * (len(sp) + 1) / 2) / (len(sp) * len(sn))
 
 
 def tpr_at_far(scores, pos, neg, far):
+    if not np.any(neg):
+        return float("nan")
     thr = np.quantile(scores[neg], 1 - far)
     return (scores[pos] > thr).mean()
 
