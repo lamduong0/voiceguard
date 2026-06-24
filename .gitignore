@@ -8,3 +8,10 @@ __pycache__/
 # dataset audio — do not redistribute (license); regenerate via scripts/fetch_samples.py
 *.wav
 *.flac
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+paper/*.pdf
