@@ -52,10 +52,10 @@ def llm_intent(turns):
         return None
     try:
         from openai import OpenAI
-        cl = OpenAI(api_key=key, base_url="https://inference-api.nvidia.com")
+        cl = OpenAI(api_key=key, base_url=os.environ.get("VG_LLM_BASE_URL") or None)
         text = "\n".join((t["text"] if isinstance(t, dict) else t) for t in turns)
         r = cl.chat.completions.create(
-            model=os.environ.get("VG_LLM_MODEL", "azure/openai/gpt-5.1"),
+            model=os.environ.get("VG_LLM_MODEL", "gpt-4o-mini"),
             messages=[{"role": "user", "content":
                        "Rate 0..1 how strongly this call transcript indicates a scam/fraud "
                        "attempt (money/gift-card/wire request, urgency, secrecy, "

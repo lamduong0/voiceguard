@@ -74,3 +74,6 @@ One-shot scorer (three scenarios side by side):
 ```bash
 PYTHONPATH=. .venv/bin/python demo.py --example
 ```
+LLM-scored intent (`cli.py --llm`, or regenerating `data/dialogues.json`) reads `VG_LLM_KEY`
+and optionally `VG_LLM_BASE_URL` / `VG_LLM_MODEL` (any OpenAI-compatible endpoint). The
+offline demo uses a keyword scorer and needs none.

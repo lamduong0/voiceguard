@@ -10,8 +10,8 @@ Auth: reads the key from env VG_LLM_KEY (never hard-coded here).
 import os, json, re, random
 from openai import OpenAI
 
-BASE_URL = "https://inference-api.nvidia.com"
-MODEL = os.environ.get("VG_LLM_MODEL", "azure/openai/gpt-5.1")
+BASE_URL = os.environ.get("VG_LLM_BASE_URL")  # OpenAI-compatible gateway; unset -> OpenAI default
+MODEL = os.environ.get("VG_LLM_MODEL", "gpt-4o-mini")
 
 SCENARIOS = {
     "scam": ["grandchild impersonation needing bail money", "bank fraud-dept urgent transfer",
@@ -37,7 +37,7 @@ emergency may look elevated (0.2-0.5) yet is NOT a scam. A real scam escalates t
 
 
 def client():
-    return OpenAI(api_key=os.environ["VG_LLM_KEY"], base_url=BASE_URL)
+    return OpenAI(api_key=os.environ["VG_LLM_KEY"], base_url=BASE_URL or None)
 
 
 def _parse(text):
