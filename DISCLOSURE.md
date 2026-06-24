@@ -76,20 +76,27 @@ sum. The alert/intervention then triggers on `risk ≥ threshold` during the cal
 
 ## 7. Evidence of reduction to practice
 Implemented and evaluated (`experiments/stage2_*.py`); see `RESULTS.md`. Per-call,
-matched-FAR (10%), out-of-fold fusion fitting, 8 pairing seeds, two pretrained detectors,
-two datasets. Against the **genuine_scam** hard negative, multiplicative beats linear:
+matched-FAR (10%), out-of-fold fusion fitting, 8 pairing seeds, **four** pretrained
+detectors, two datasets, 600 clips/class/source (m1/m2). Against the **genuine_scam** hard
+negative, multiplicative beats linear in two settings:
 
 | setting | acoustic regime | Δ TPR@10%FAR (mult − linear) | seeds won |
 |---|---|---|---|
-| MelodyMachine × ASVspoof | informative, imperfect | +0.251 | 8/8 |
-| wav2vec2-xlsr × In-the-Wild | informative, imperfect | +0.136 | 8/8 |
-| wav2vec2-xlsr × ASVspoof | near-perfect | −0.021 | tie |
-| MelodyMachine × In-the-Wild | broken | +0.001 | n/a |
+| MelodyMachine × ASVspoof | informative, imperfect | +0.122 | 8/8 |
+| wav2vec2-xlsr × In-the-Wild | informative, imperfect | +0.135 | 8/8 |
+| wav2vec2-xlsr × ASVspoof | near-perfect | −0.010 | tie |
+| Hemgg × ASVspoof / In-the-Wild | near-perfect / informative | −0.018 / −0.031 | no win |
+| mo-thecreator × ASVspoof | collapses under noise | ≤ 0 | no win |
 
-The regime-dependent gain (helps precisely when the detector is uncertain) is the
-**non-obviousness** argument: a person of ordinary skill combining known acoustic + intent
-fusion would not predict that a multiplicative veto specifically recovers the high-intent
-genuine case while linear fusion fails it.
+Bootstrap CIs separate where it wins (MelodyMachine×ASVspoof: bayesian [0.604, 0.707] vs
+parallel [0.422, 0.533]). **Honest scope (after a larger run):** the gain is real and
+seed-robust where it appears but modest (~+0.12–0.14) and shows in only 2 of 4 detectors
+tested; AUC level alone does not predict it. The **non-obviousness** hook — a multiplicative
+veto recovering the high-intent genuine case where linear fusion fails — holds in those
+settings, but because the effect is detector-specific it is a weaker broad obviousness
+rebuttal than the initial small-sample result (+0.251) suggested. Weigh defensive
+publication accordingly (§9). NOTE: an earlier small-sample estimate of +0.251 was inflated;
+if the filed disclosure or any preprint cited it, correct to +0.122.
 
 ## 8. Alternatives / variations
 - `î` as max, mean, or last-turn intent; `â` as whole-call or streaming estimate.
