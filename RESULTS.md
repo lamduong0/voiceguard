@@ -87,6 +87,15 @@ bootstrap CIs corroborates: on m1×ASV the bayesian genuine_scam CI [0.674, 0.85
 not overlap parallel's [0.451, 0.652]. Ties when the detector is near-perfect (nothing to
 fix) or broken (nothing to use) are expected and reported, not hidden.
 
+**A 3rd detector exposes a boundary (mo-thecreator; `stage2_degrade.py` on
+`acoustic_degrade_m3.json`).** Near-perfect on clean ASVspoof (clone P_fake 1.0) → gain
+−0.026 (tie, as expected). But under additive noise m3 does *not* degrade gracefully — both
+classes collapse to P_fake ≈ 0, leaving no graded acoustic signal — and gain is negative at
+every SNR (−0.02 to −0.06). So claim 2 is conditional not merely on "imperfect" but on the
+detector **retaining a graded, informative signal** in the imperfect regime (true for
+m1/m2, false for m3). The advantage is real but **not universal across detectors**; the
+degradation *behavior* matters, and white noise is one specific stressor.
+
 ## Claim 3 — generalization is the binding constraint (and model-dependent)
 
 Mean P(synthetic) by class (sanity check that the detector separates the data):

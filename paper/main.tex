@@ -5,6 +5,8 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\emergencystretch=3em
 \graphicspath{{../figures/}}
 
 \title{When does fusion help? Multiplicative cross-modal fusion for
@@ -120,8 +122,8 @@ intent trivially sufficient (AUC 0.99, fusion irrelevant). Adding \textsc{genuin
 removes the confound and is what makes the comparison meaningful.
 
 \section{Experimental setup}
-Detectors: m1 = \texttt{MelodyMachine/Deepfake-audio-detection-V2}~\cite{melodymachine},
-m2 = \texttt{Gustking/wav2vec2-large-xlsr-deepfake}~\cite{gustking}. Evaluation: per-call
+Detectors: m1, a deepfake-audio classifier~\cite{melodymachine}, and m2, a
+wav2vec2-large-xlsr anti-spoofing model~\cite{gustking}. Evaluation: per-call
 scores; fusion parameters and center fit out-of-fold (2-fold, no leakage); comparison at a
 matched false-alarm rate (TPR @ 10\% FAR) against \textsc{genuine\_scam} and all negatives;
 AUC; bootstrap 95\% CIs; reporting over 8 random pairing seeds.
@@ -168,7 +170,12 @@ m1 $\times$ In-the-Wild & broken (AUC 0.519) & $+0.001$ & n/a \\
 The multiplicative veto wins decisively in the informative-but-imperfect regime and is a
 wash when the detector is near-perfect (nothing to fix) or broken (nothing to use). On
 m1$\times$ASVspoof the bootstrap CI for bayesian on \textsc{genuine\_scam} $[0.674,0.858]$
-does not overlap parallel's $[0.451,0.652]$.
+does not overlap parallel's $[0.451,0.652]$. A third detector (mo-thecreator) exposes a
+boundary: near-perfect on clean ASVspoof (tie), it collapses both classes to
+P(synthetic)\,$\approx$\,0 under additive noise rather than degrading gracefully, leaving no
+graded signal---so its gain is negative at every SNR. The veto's benefit is thus conditional
+on the detector \emph{retaining a graded informative signal} in the imperfect regime (true
+for m1, m2; false for m3), not merely on being ``imperfect.''
 
 \subsection{Generalization is the binding constraint}\label{sec:c3}
 Mean P(synthetic) by class:
@@ -204,8 +211,10 @@ detector is uncertain but not useless.}
 \section{Limitations and ethics}
 The benchmark pairs independent audio and transcripts, removing natural acoustic--content
 correlation; real paired scam recordings would strengthen the evidence. The intent signal
-is LLM-generated and LLM-scored, hence somewhat idealized. We evaluate two detectors, two
-datasets, and one language, at modest scale (multi-seed reporting). We study defense only,
+is LLM-generated and LLM-scored, hence somewhat idealized. We evaluate three detectors, two
+datasets, and one language, at modest scale (multi-seed reporting), and one degradation type
+(additive noise); the veto's benefit is conditional on graceful detector degradation, which
+not all detectors exhibit (\S\ref{sec:c2}). We study defense only,
 introduce no new cloning capability, use public consented datasets, and release the
 methodology to help defenders and establish prior art.
 

@@ -32,6 +32,8 @@ def one_seed(clips, pools, seed):
 
 def run(events_path, source, pools, n_seeds):
     clips = [c for c in json.load(open(events_path)) if c["source"] == source]
+    if not clips:
+        return
     rows = {k: {"auc": [], "tpr_gs": [], "tpr_all": []} for k in METHODS}
     for s in range(n_seeds):
         r = one_seed(clips, pools, s)
