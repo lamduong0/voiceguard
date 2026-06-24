@@ -1,0 +1,10 @@
+# Real acoustic scoring + dataset loading (GPU recommended). Install on top of
+# requirements.txt: pip install -r requirements.txt -r requirements-acoustic.txt
+torch>=2.2
+torchaudio>=2.2
+torchcodec>=0.1
+transformers>=4.40
+datasets>=2.19
+huggingface_hub>=0.23
+librosa>=0.10
+soundfile>=0.12

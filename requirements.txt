@@ -1,0 +1,5 @@
+# Core (CPU): Stage 1 sim, analysis, figures, offline demo, intent via the LLM gateway.
+numpy>=1.26
+pytest>=8.0
+openai>=1.40
+matplotlib>=3.8
