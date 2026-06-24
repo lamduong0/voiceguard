@@ -70,6 +70,14 @@ PYTHONPATH=. .venv/bin/python cli.py --audio call.wav --transcript turns.json   
 PYTHONPATH=. .venv/bin/python cli.py --audio call.mp3 --asr                      # transcribe (ASR) + score real words
 PYTHONPATH=. .venv/bin/python cli.py --scenario clone_scam --json               # machine-readable
 ```
+**Transcribe your own audio** (mp3/wav/m4a) into a `turns.json` you can inspect or edit
+before scoring — `--asr` above does this inline; `scripts/transcribe.py` saves it to a file:
+```bash
+PYTHONPATH=. .venv/bin/python scripts/transcribe.py call.mp3 --out turns.json --txt transcript.txt
+PYTHONPATH=. .venv/bin/python cli.py --audio call.mp3 --transcript turns.json
+```
+ASR needs `pip install -r requirements-acoustic.txt` (faster-whisper). Caveat: the bundled
+acoustic detector (m1) is near-chance on real-world/phone audio — see RESULTS.md claim 3.
 One-shot scorer (three scenarios side by side):
 ```bash
 PYTHONPATH=. .venv/bin/python demo.py --example
