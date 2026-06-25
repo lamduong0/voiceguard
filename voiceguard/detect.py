@@ -60,7 +60,7 @@ def llm_intent(turns):
                        "Rate 0..1 how strongly this call transcript indicates a scam/fraud "
                        "attempt (money/gift-card/wire request, urgency, secrecy, "
                        "impersonation). Reply with ONLY the number.\n\n" + text}],
-            max_tokens=8, temperature=0)
+            max_tokens=2048, temperature=0)  # headroom for reasoning models (e.g. Nemotron)
         m = re.search(r"[01](?:\.\d+)?", r.choices[0].message.content)
         return float(m.group(0)) if m else None
     except Exception:
