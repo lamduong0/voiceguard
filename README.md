@@ -1,5 +1,9 @@
 # VoiceGuard — cross-modal fusion for voice-clone scam detection
 
+> A multiplicative **acoustic veto** that flags AI voice-clone scams *without* crying wolf on
+> a real, panicked relative whose words happen to sound like one. Honest finding: the
+> mechanism helps, but modestly (≈+0.12–0.14 TPR@10%FAR) and in only 2 of 4 detectors tested.
+
 Research code for a paper + invention disclosure on combining an **acoustic deepfake
 detector** with an **LLM scam-intent** signal to flag AI voice-clone phone scams. The broad
 "live, fuse acoustic/intent/metadata, alert during call" system is already prior art

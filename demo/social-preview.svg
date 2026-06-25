@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img">
+<title>VoiceGuard social preview card</title>
+<desc>VoiceGuard: a multiplicative acoustic veto for AI voice-clone scam detection. risk = P(synthetic) times intent. Honest finding: helps modestly, +0.12 to 0.14 TPR at 10% FAR, in 2 of 4 detectors.</desc>
+<rect x="0" y="0" width="1280" height="640" fill="#0F1B2D"/>
+<rect x="0" y="0" width="1280" height="8" fill="#4FD1C5"/>
+<text x="90" y="172" font-family="Helvetica, Arial, sans-serif" font-size="86" font-weight="600" fill="#F4F7FB">VoiceGuard</text>
+<text x="94" y="224" font-family="Helvetica, Arial, sans-serif" font-size="34" fill="#93A1B5">An acoustic veto for AI voice-clone scams</text>
+<line x1="92" y1="262" x2="1190" y2="262" stroke="#25344A" stroke-width="2"/>
+<text x="92" y="352" font-family="Menlo, Consolas, monospace" font-size="48" fill="#F4F7FB">risk = P(synthetic) <tspan fill="#4FD1C5">×</tspan> intent</text>
+<text x="94" y="410" font-family="Helvetica, Arial, sans-serif" font-size="27" fill="#93A1B5">Strong genuine-voice evidence vetoes a scam-sounding call.</text>
+<polyline points="92,470 126,452 160,438 194,462 228,418 262,486 296,448 330,430 364,498 398,452 432,440 466,480 500,450 534,416 568,496 602,460 636,444 670,476 704,454 738,468 772,470" fill="none" stroke="#4FD1C5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+<rect x="92" y="528" width="318" height="48" rx="24" fill="#16243A" stroke="#314866" stroke-width="1.5"/>
+<text x="251" y="558" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#BBD9D5">+0.12–0.14 TPR@10%FAR</text>
+<rect x="430" y="528" width="226" height="48" rx="24" fill="#16243A" stroke="#314866" stroke-width="1.5"/>
+<text x="543" y="558" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#B9C6D8">2 of 4 detectors</text>
+<rect x="676" y="528" width="176" height="48" rx="24" fill="#16243A" stroke="#314866" stroke-width="1.5"/>
+<text x="764" y="558" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#B9C6D8">seed-robust</text>
+<text x="92" y="616" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#6F8096">github.com/lamduong0/voiceguard</text>
+<text x="1190" y="616" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#6F8096">MIT · personal research project</text>
+</svg>
