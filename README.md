@@ -64,6 +64,15 @@ PYTHONPATH=. .venv/bin/python experiments/stage2_harden.py data/events_m1_600.js
 End-to-end prototype: audio + transcript → multiplicative-veto risk → in-call intervention.
 Core logic in `voiceguard/detect.py`; interactive widget at `demo/voiceguard_demo.html`.
 
+**1-click check** — hand it a recording, get a verdict (transcribe → score voice + intent →
+risk). Backed by the m2 detector that generalizes to real-world audio (see RESULTS.md claim 3).
+```bash
+PYTHONPATH=. .venv/bin/python check.py call.mp3          # CLI: prints verdict + transcript
+pip install -r requirements-app.txt                      # then, for the web app:
+PYTHONPATH=. .venv/bin/python app.py                     # drag-drop upload in the browser
+```
+Shared core in `voiceguard/assess.py`. Needs `requirements-acoustic.txt` (ASR + acoustic model).
+
 Turn-by-turn "live call" player (risk evolves as the scam escalates; intervention fires on
 threshold crossing):
 ```bash
