@@ -54,13 +54,17 @@ def llm_intent(turns):
         from openai import OpenAI
         cl = OpenAI(api_key=key, base_url=os.environ.get("VG_LLM_BASE_URL") or None)
         text = "\n".join((t["text"] if isinstance(t, dict) else t) for t in turns)
-        r = cl.chat.completions.create(
-            model=os.environ.get("VG_LLM_MODEL", "gpt-4o-mini"),
-            messages=[{"role": "user", "content":
-                       "Rate 0..1 how strongly this call transcript indicates a scam/fraud "
-                       "attempt (money/gift-card/wire request, urgency, secrecy, "
-                       "impersonation). Reply with ONLY the number.\n\n" + text}],
-            max_tokens=2048, temperature=0)  # headroom for reasoning models (e.g. Nemotron)
+        # max_tokens=2048 leaves headroom for reasoning models (e.g. Nemotron).
+        kw = dict(model=os.environ.get("VG_LLM_MODEL", "gpt-4o-mini"),
+                  messages=[{"role": "user", "content":
+                             "Rate 0..1 how strongly this call transcript indicates a scam/fraud "
+                             "attempt (money/gift-card/wire request, urgency, secrecy, "
+                             "impersonation). Reply with ONLY the number.\n\n" + text}],
+                  max_tokens=2048)
+        try:
+            r = cl.chat.completions.create(temperature=0, **kw)  # deterministic where supported
+        except Exception:
+            r = cl.chat.completions.create(**kw)  # some models (e.g. gpt-5.x) only allow default
         m = re.search(r"[01](?:\.\d+)?", r.choices[0].message.content)
         return float(m.group(0)) if m else None
     except Exception:
