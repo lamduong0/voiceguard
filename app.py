@@ -17,11 +17,17 @@ def run(audio_path):
         return "Drop in or record an audio file, then press Check.", ""
     r = assess(audio_path)
     color = LEVEL_COLOR.get(r["level"], "#555")
+    seg = ""
+    if r["peak_segment"]:
+        ps = r["peak_segment"]
+        seg = (f"\n- most-synthetic segment **{ps['start']}–{ps['end']}s** "
+               f"(whole-file mean {r['acoustic_overall']:.2f}, "
+               f"{int(r['frac_synthetic'] * 100)}% of seconds flagged)")
     verdict = (
         f"## <span style='color:{color}'>{r['level']}</span> &nbsp; risk {r['risk']:.2f}\n\n"
         f"{r['advice']}\n\n"
         f"- acoustic P(synthetic) **{r['acoustic']:.2f}** → P(clone) **{r['p_clone']:.2f}** "
-        f"({r['detector'].split('/')[-1]})\n"
+        f"({r['detector'].split('/')[-1]}, {r['pooling']}){seg}\n"
         f"- scam-intent **{r['intent']:.2f}** ({r['intent_source']})\n\n"
         f"> {r['caveat']}"
     )

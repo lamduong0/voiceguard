@@ -32,7 +32,12 @@ def main():
         print(f"    [{t['t']:5.1f}s] {t['text']}")
     if not r["transcript"]:
         print("    (no speech detected)")
-    print(f"\n  acoustic P(synthetic) {r['acoustic']:.2f}  ->  P(clone) {r['p_clone']:.2f}")
+    print(f"\n  acoustic P(synthetic) {r['acoustic']:.2f}  ->  P(clone) {r['p_clone']:.2f}   ({r['pooling']})")
+    if r["peak_segment"]:
+        ps = r["peak_segment"]
+        print(f"    most-synthetic segment {ps['start']}-{ps['end']}s   "
+              f"(whole-file mean {r['acoustic_overall']:.2f}, "
+              f"{int(r['frac_synthetic'] * 100)}% of seconds flagged)")
     print(f"  scam-intent           {r['intent']:.2f}")
     print(f"  risk [{bar(r['risk'])}] {r['risk']:.2f}   [{r['level']}]\n")
     print(f"  {r['advice']}")

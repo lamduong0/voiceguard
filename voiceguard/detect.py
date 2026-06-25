@@ -104,19 +104,27 @@ class AcousticScorer:
         self.fake_idx = [i for i, l in self.m.config.id2label.items()
                          if str(l).lower() in ("fake", "spoof", "synthetic")][0]
 
-    def score(self, wav_path):
-        import soundfile as sf, librosa, numpy as np
+    def score_windows(self, wav_path):
+        """Per-1s-window (start_second, P(synthetic)) over the whole file — no length cap.
+        Pool these (mean for short clips, chunk-max for long ones) downstream."""
+        import soundfile as sf, librosa
         wav, sr = sf.read(wav_path, dtype="float32")
         if wav.ndim > 1:
             wav = wav.mean(1)
         if sr != 16000:
             wav = librosa.resample(wav, orig_sr=sr, target_sr=16000)
-        probs = []
+        out = []
         for i in range(0, len(wav), 16000):
             ch = wav[i:i + 16000]
             if len(ch) < 8000:
                 break
             inp = self.fe(ch, sampling_rate=16000, return_tensors="pt")
             with self.torch.no_grad():
-                probs.append(self.torch.softmax(self.m(**inp).logits, -1)[0, self.fake_idx].item())
-        return sum(probs) / len(probs) if probs else 0.5
+                p = self.torch.softmax(self.m(**inp).logits, -1)[0, self.fake_idx].item()
+            out.append((i // 16000, p))
+        return out
+
+    def score(self, wav_path):
+        """Whole-file mean P(synthetic) (unchanged API; long-file callers use score_windows)."""
+        w = self.score_windows(wav_path)
+        return sum(p for _, p in w) / len(w) if w else 0.5
