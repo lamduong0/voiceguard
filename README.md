@@ -51,13 +51,24 @@ figures F1/F2. Open: real paired scam audio (licensing-gated) and a final venue 
 - `cli.py`, `demo.py`, `demo/voiceguard_demo.html` — runnable prototypes
 - `data/` — derived per-clip scores (JSON); `figures/` — F1/F2
 
+## Install
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install -e .                 # core (CPU): sim, analysis, offline demo, LLM intent
+.venv/bin/pip install -e ".[acoustic]"     # + real acoustic scoring & ASR (torch/transformers)
+.venv/bin/pip install -e ".[app]"          # + the drag-drop web app (gradio)
+.venv/bin/pip install -e ".[acoustic,app,dev]"   # everything, incl. pytest
+```
+Dependencies are declared in `pyproject.toml` (single source); the `requirements*.txt` files
+are thin shims that map to these extras. An editable install puts `voiceguard` on the path,
+so **`PYTHONPATH=.` is no longer needed** — it's kept in the examples below only as a fallback
+for an uninstalled checkout.
+
 ## Run
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install -r requirements.txt   # core (CPU)
-PYTHONPATH=. .venv/bin/python -m pytest tests -q
-PYTHONPATH=. .venv/bin/python experiments/stage1_mechanism.py           # Stage 1 sim
-PYTHONPATH=. .venv/bin/python experiments/stage2_harden.py data/events_m1_600.json 8   # claim 2
-# real acoustic scoring needs: pip install -r requirements-acoustic.txt
+.venv/bin/python -m pytest tests -q
+.venv/bin/python experiments/stage1_mechanism.py                         # Stage 1 sim
+.venv/bin/python experiments/stage2_harden.py data/events_m1_600.json 8  # claim 2
 ```
 
 ## Demo

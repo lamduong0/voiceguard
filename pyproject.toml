@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voiceguard"
+version = "0.1.0"
+description = "Cross-modal fusion (acoustic veto x scam-intent) for AI voice-clone scam detection"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "openai>=1.40",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+# Real acoustic scoring + ASR + dataset loading (GPU recommended).
+acoustic = [
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "torchcodec>=0.1",
+    "transformers>=4.40",
+    "datasets>=2.19",
+    "huggingface_hub>=0.23",
+    "librosa>=0.10",
+    "soundfile>=0.12",
+    "faster-whisper>=1.0",
+]
+# 1-click web app (app.py) — also pulls the acoustic stack.
+app = ["voiceguard[acoustic]", "gradio>=4.0"]
+# Test runner.
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["voiceguard"]
