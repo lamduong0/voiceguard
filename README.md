@@ -64,6 +64,10 @@ are thin shims that map to these extras. An editable install puts `voiceguard` o
 so **`PYTHONPATH=.` is no longer needed** — it's kept in the examples below only as a fallback
 for an uninstalled checkout.
 
+To reproduce the **exact** environment the RESULTS.md / paper numbers were produced in, use
+the pinned provenance freeze `requirements.lock` (macOS/arm64, CPython 3.11 — see its header).
+For normal use, prefer the version floors above.
+
 ## Run
 ```bash
 .venv/bin/python -m pytest tests -q
