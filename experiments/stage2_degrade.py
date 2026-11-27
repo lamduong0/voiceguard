@@ -17,7 +17,7 @@ def metrics_one_seed(clips, pools, seed):
     ds = build_dataset(clips, pools, seed=seed)
     a_mean, i_max = ds.acoustic.mean(1), ds.intent.max(1)
     pos, gscam = ds.positive, ds.call_type == "genuine_scam"
-    y = np.where(pos, 1, np.where(~pos, 0, -1))
+    y = pos.astype(int)   # 1 = clone_scam, 0 = every other call
     folds = np.array_split(np.random.default_rng(seed).permutation(len(y)), 2)
     sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
     aco_auc = auc(sc["acoustic_only"], y == 1, y == 0)
@@ -31,8 +31,7 @@ def main():
     n_seeds = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     data = json.load(open(path))
     pools = build_pools()
-    levels = sorted({r["snr"] for r in data}, key=lambda x: (x == "clean", x if x != "clean" else 0), reverse=True)
-    # order: clean first, then high->low SNR
+    levels = {r["snr"] for r in data}   # order: clean first, then high -> low SNR
     levels = (["clean"] if "clean" in levels else []) + sorted([l for l in levels if l != "clean"], reverse=True)
     print(f"{path}  ({n_seeds} seeds)\n")
     cols = f"{'source':>7} | {'SNR':>6} | {'acoustic_AUC':>13} | {'bayes TPR_gs':>13} | {'linear TPR_gs':>14} | {'gain(b-l)':>10}"

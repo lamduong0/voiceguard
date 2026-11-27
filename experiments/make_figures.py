@@ -28,7 +28,7 @@ def roc_curve(s, posm, negm):
 data = [c for c in json.load(open("data/events_m1_600.json")) if c["source"] == "asv"]
 ds = build_dataset(data, pools, seed=0)
 a_mean, i_max = ds.acoustic.mean(1), ds.intent.max(1)
-y = np.where(ds.positive, 1, np.where(~ds.positive, 0, -1))
+y = ds.positive.astype(int)
 folds = np.array_split(np.random.default_rng(0).permutation(len(y)), 2)
 sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
 

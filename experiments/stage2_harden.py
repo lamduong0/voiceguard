@@ -26,7 +26,7 @@ def one_seed(clips, pools, seed):
     ds = build_dataset(clips, pools, seed=seed)
     a_mean, i_max = ds.acoustic.mean(1), ds.intent.max(1)
     pos, gscam = ds.positive, ds.call_type == "genuine_scam"
-    y = np.where(pos, 1, np.where(~pos, 0, -1))
+    y = pos.astype(int)   # 1 = clone_scam, 0 = every other call
     folds = np.array_split(np.random.default_rng(seed).permutation(len(y)), 2)
     sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
     out = {}

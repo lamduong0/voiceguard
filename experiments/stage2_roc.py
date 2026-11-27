@@ -160,7 +160,7 @@ def run(source, pools, path="data/acoustic_events.json"):
     i_max = ds.intent.max(1)
     pos = ds.positive
     gscam = ds.call_type == "genuine_scam"   # decisive hard neg: high intent, genuine voice
-    y = np.where(pos, 1, np.where(~pos, 0, -1))  # 1=clone_scam, 0=negative
+    y = pos.astype(int)   # 1 = clone_scam, 0 = every other call
 
     perm = RNG.permutation(len(y))
     folds = np.array_split(perm, 2)
