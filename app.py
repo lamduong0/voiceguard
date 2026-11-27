@@ -1,7 +1,7 @@
 """Drag-drop web app: upload (or record) a call, get the VoiceGuard risk verdict.
 
-  pip install -r requirements-app.txt        # gradio, on top of requirements-acoustic
-  PYTHONPATH=. .venv/bin/python app.py       # opens a local page in your browser
+  pip install -e ".[app]"           # gradio + the acoustic stack
+  .venv/bin/python app.py           # opens a local page in your browser
 
 Shares the core in voiceguard/assess.py (m2 detector, honest caveat). The first
 request loads the models; later ones reuse them.

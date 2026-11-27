@@ -1,10 +1,10 @@
 """1-click risk check: hand it an audio file, get a verdict. No flags to remember.
 
-  PYTHONPATH=. .venv/bin/python check.py call.mp3
-  PYTHONPATH=. .venv/bin/python check.py call.mp3 --json   # machine-readable
+  .venv/bin/python check.py call.mp3
+  .venv/bin/python check.py call.mp3 --json   # machine-readable
 
 Transcribes the call, scores voice (m2) + scam-intent, and rates the risk. See
-voiceguard/assess.py for the core. Needs `pip install -r requirements-acoustic.txt`.
+voiceguard/assess.py for the core. Needs `pip install -e ".[acoustic]"`.
 """
 import sys, json
 from voiceguard.assess import assess

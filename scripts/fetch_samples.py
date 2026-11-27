@@ -1,7 +1,7 @@
 """Fetch one genuine + one clone clip from the ASVspoof 2019 LA HF mirror and save as WAV
 for the real-audio smoke test. Audio is gitignored (do not redistribute dataset files).
 
-  PYTHONPATH=. .venv/bin/python scripts/fetch_samples.py
+  .venv/bin/python scripts/fetch_samples.py
 """
 import io, os, soundfile as sf
 from datasets import load_dataset, Audio

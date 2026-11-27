@@ -43,6 +43,17 @@ def _pool(windows, cal):
     return (*peak, overall, frac_high)
 
 
+def speech_windows(windows, turns):
+    """Keep the one-second windows that overlap an ASR speech segment. The detector was
+    calibrated on speech; scoring silence and line noise only adds noise. Without segment
+    ends (no ASR, or transcripts from older versions) every window is kept."""
+    spans = [(t["t"], t["end"]) for t in turns if "end" in t]
+    if not spans:
+        return windows
+    kept = [(s, p) for s, p in windows if any(a < s + 1 and s < b for a, b in spans)]
+    return kept or windows
+
+
 def assess(audio_path, model_size="base"):
     """Decode once and combine available acoustic and transcript evidence."""
     cal = load_calibration(model=M2, source="itw")
@@ -58,10 +69,11 @@ def assess(audio_path, model_size="base"):
         "caveat": CAVEAT, "transcript": [],
     }
     try:
-        waveform = load_audio(audio_path)
+        audio = load_audio(audio_path, mono=False)   # channels kept for per-speaker scoring
     except (ValueError, RuntimeError, OSError, EOFError) as error:
         result["reasons"].append(f"Audio could not be decoded ({error}).")
         return result
+    waveform = audio if audio.ndim == 1 else audio.mean(0)   # ASR hears the mix
     result["duration_s"] = len(waveform) / SAMPLE_RATE
     if len(waveform) < MIN_SAMPLES:
         result["reasons"].append("Audio is shorter than the detector's 0.5-second minimum.")
@@ -79,7 +91,7 @@ def assess(audio_path, model_size="base"):
 
     windows = []
     try:
-        windows = _get_scorer().score_windows(waveform)
+        windows = speech_windows(_get_scorer().score_windows(audio), result["transcript"])
     except (ValueError, RuntimeError, OSError) as error:
         result["reasons"].append(f"Acoustic scoring failed ({error}).")
     if not windows:

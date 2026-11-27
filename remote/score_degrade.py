@@ -19,8 +19,10 @@ def load_model(mid):
     fe = AutoFeatureExtractor.from_pretrained(mid)
     m = AutoModelForAudioClassification.from_pretrained(mid).to("cuda").eval()
     fl = [i for i, l in m.config.id2label.items()
-          if str(l).lower() in ("fake", "spoof", "spoofed", "fake_audio", "ai", "synthetic")]
-    fi = fl[0] if fl else 0
+          if str(l).lower() in ("fake", "spoof", "spoofed", "fake_audio", "ai", "aivoice", "synthetic", "deepfake")]
+    if len(fl) != 1:  # standalone copy of voiceguard.detect.fake_index: never guess
+        raise SystemExit(f"Can't identify the synthetic-voice label in {m.config.id2label}")
+    fi = fl[0]
     print("MODEL", mid, m.config.id2label, "fake_idx", fi, flush=True)
     return fe, m, fi
 
