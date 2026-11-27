@@ -7,9 +7,10 @@ so we score each CALL as a whole and compare methods fairly:
   - parallel      : a*acoustic + (1-a)*intent      (a fit out-of-fold)
   - bayesian      : sigmoid(g*(acoustic-c))*intent  (c calibrated to data, g fit out-of-fold)
 
-Fair comparison: out-of-fold scoring (2-fold, no leakage), then on the pooled
-out-of-fold scores report AUC and TPR at a MATCHED false-alarm rate (on the
-genuine_scam hard negatives, and on all negatives), each with bootstrap 95% CIs.
+Out-of-fold scoring (2-fold), followed by AUC and TPR at a nominal false-alarm
+target on pooled scores. Report achieved FAR and thresholds because ties and
+finite samples affect the operating point. Bootstrap CIs condition on these
+fitted scores, with paired resampling for the difference between fusion methods.
 """
 import json, numpy as np
 from voiceguard.intent import build_pools
@@ -48,16 +49,26 @@ def auc(scores, pos, neg):
 
 
 def tpr_at_far(scores, pos, neg, far):
-    """TPR at the threshold whose FAR is `far`. Scores tied at the threshold are split
-    (randomized tie-break, in expectation) so the achieved FAR equals `far`; a strict
-    `>` would report 0 TPR whenever >= far of the negatives tie at the top."""
+    return operating_point(scores, pos, neg, far)["tpr"]
+
+
+def operating_point(scores, pos, neg, far):
+    """Quantile threshold with randomized ties and the expected achieved FAR.
+
+    Tied negatives and positives receive the same selection weight. Report the
+    strict-threshold FAR too, since deploying tie randomization is a separate choice.
+    Finite-sample quantiles can put FAR slightly above the nominal target.
+    """
     if not np.any(neg):
-        return float("nan")
+        return dict(tpr=float("nan"), far=float("nan"), threshold=float("nan"),
+                    strict_far=float("nan"), tie_weight=float("nan"))
     sn, sp = scores[neg], scores[pos]
     thr = np.quantile(sn, 1 - far)
     above, at = (sn > thr).mean(), (sn == thr).mean()
-    w = min(1.0, max(0.0, (far - above) / at)) if at else 0.0
-    return (sp > thr).mean() + w * (sp == thr).mean()
+    weight = min(1.0, max(0.0, (far - above) / at)) if at else 0.0
+    tpr = (sp > thr).mean() + weight * (sp == thr).mean() if len(sp) else float("nan")
+    return dict(tpr=tpr, far=above + weight * at, threshold=thr,
+                strict_far=above, tie_weight=weight)
 
 
 def fit_parallel(a, i, y):
@@ -97,13 +108,23 @@ def oof_scores(a_mean, i_max, y, idx_folds, clone):
     return out
 
 
-def boot(fn, n):
+def boot(fn, n, rng=None):
+    rng = RNG if rng is None else rng
     vals = []
     for _ in range(B):
-        bi = RNG.integers(0, n, n)
+        bi = rng.integers(0, n, n)
         vals.append(fn(bi))
     lo, hi = np.percentile(vals, [2.5, 97.5])
     return np.mean(vals), lo, hi
+
+
+def paired_tpr_gain(first, second, pos, neg, far=FAR):
+    """Bootstrap the TPR difference using the same sampled calls for both methods."""
+    return boot(
+        lambda bi: tpr_at_far(first[bi], pos[bi], neg[bi], far)
+        - tpr_at_far(second[bi], pos[bi], neg[bi], far),
+        len(first), rng=np.random.default_rng(0),
+    )
 
 
 def run(source, pools, path="data/acoustic_events.json"):
@@ -120,7 +141,7 @@ def run(source, pools, path="data/acoustic_events.json"):
     scores = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
 
     print(f"\n### source={source}  n={len(y)}  pos(clone_scam)={int(pos.sum())}  genuine_scam={int(gscam.sum())}")
-    cols = f"{'method':>14} | {'AUC':>18} | {'TPR@10%FAR_genuine_scam':>30} | {'TPR@10%FAR_all':>24}"
+    cols = f"{'method':>14} | {'AUC':>18} | {'TPR target10% genuine_scam':>30} | {'TPR target10% all':>24}"
     print(cols); print("-" * len(cols))
     for name, s in scores.items():
         auc_m = boot(lambda bi, s=s: auc(s[bi], y[bi] == 1, y[bi] == 0), len(y))
@@ -129,7 +150,18 @@ def run(source, pools, path="data/acoustic_events.json"):
         print(f"{name:>14} | {auc_m[0]:.3f} [{auc_m[1]:.3f},{auc_m[2]:.3f}] | "
               f"{tg[0]:.3f} [{tg[1]:.3f},{tg[2]:.3f}]          | "
               f"{ta[0]:.3f} [{ta[1]:.3f},{ta[2]:.3f}]")
+        for label, negatives in [("genuine_scam", gscam), ("all", y == 0)]:
+            point = operating_point(s, pos, negatives, FAR)
+            print(f"    {label} expected FAR={point['far']:.4f}  "
+                  f"strict FAR={point['strict_far']:.4f}  tie weight={point['tie_weight']:.4f}  "
+                  f"threshold={point['threshold']:.4f}  expected TPR={point['tpr']:.4f}")
     print("-" * len(cols))
+    for label, negatives in [("genuine_scam", gscam), ("all", y == 0)]:
+        gain = tpr_at_far(scores["bayesian"], pos, negatives, FAR) - tpr_at_far(
+            scores["parallel"], pos, negatives, FAR)
+        _, lo, hi = paired_tpr_gain(scores["bayesian"], scores["parallel"], pos, negatives)
+        print(f"  multiplicative - linear ({label}) observed gain={gain:+.3f}  "
+              f"paired bootstrap 95% CI=[{lo:+.3f}, {hi:+.3f}]")
 
 
 def main():

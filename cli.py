@@ -6,13 +6,15 @@
   python cli.py --audio call.wav --transcript turns.json   # real model on your audio
   python cli.py --scenario clone_scam --json               # machine-readable
 
-Risk = P(clone | acoustic) x scam-intent (the multiplicative veto). Intent is recomputed
+Combined score = clone score x scam-intent (the multiplicative veto). Intent is recomputed
 over the turns heard so far, so the risk bar rises as a scam escalates; a genuine voice is
 vetoed even when the words sound identical.
 """
 import json, argparse
+from pathlib import Path
 from voiceguard.detect import (load_calibration, fuse, decide, keyword_intent,
-                               score_intent, AcousticScorer, transcribe)
+                               score_intent, AcousticScorer, transcribe, load_audio,
+                               format_score)
 
 SCAM_TURNS = [
     {"text": "Grandma, it's me!"},
@@ -28,7 +30,8 @@ BENIGN_TURNS = [
 ]
 
 
-def acoustic_from_data(is_clone, path="data/acoustic_events_m1.json"):
+def acoustic_from_data(is_clone, path=None):
+    path = path or Path(__file__).parent / "data/acoustic_events_m1.json"
     data = [r for r in json.load(open(path)) if r["source"] == "asv" and r["is_clone"] == is_clone]
     mean_a = lambda r: sum(p for _, p in r["events"]) / len(r["events"])
     pick = max(data, key=mean_a) if is_clone else min(data, key=mean_a)
@@ -43,13 +46,17 @@ SCENARIOS = {
 
 
 def bar(x, width=22):
+    if x is None:
+        return "unavailable"
     n = max(0, min(width, int(round(x * width))))
     return "#" * n + "." * (width - n)
 
 
 def play(acoustic, turns, cal, json_out=False, use_llm=False):
     trace, fired = [], None
-    intent, intent_src = 0.0, "keyword"
+    intent_src = "none"
+    final_risk = None
+    final_lvl, final_msg = decide(None)
     if use_llm and not json_out:
         print("(scoring intent via LLM gateway)\n")
     for k, turn in enumerate(turns):
@@ -57,22 +64,29 @@ def play(acoustic, turns, cal, json_out=False, use_llm=False):
             intent, intent_src = score_intent(turns[:k + 1])
         else:
             intent = keyword_intent(turns[:k + 1])
+            intent_src = "keyword" if intent is not None else "none"
         risk, p_clone = fuse(acoustic, intent, cal)
         lvl, msg = decide(risk)
-        trace.append({"turn": k + 1, "text": turn["text"], "intent": round(intent, 3),
-                      "p_clone": round(p_clone, 3), "risk": round(risk, 3), "level": lvl})
+        clone_score = round(p_clone, 3) if p_clone is not None else None
+        trace.append({"turn": k + 1, "text": turn["text"],
+                      "intent": round(intent, 3) if intent is not None else None,
+                      "intent_source": intent_src, "clone_score": clone_score,
+                      "p_clone": clone_score,
+                      "risk": round(risk, 3) if risk is not None else None, "level": lvl})
+        final_risk, final_lvl, final_msg = risk, lvl, msg
         if not json_out:
             print(f"[t{k + 1}] caller: {turn['text']}")
-            print(f"      risk [{bar(risk)}] {risk:.2f}   P_clone {p_clone:.2f} x intent {intent:.2f}   {lvl}")
+            print(f"      voice-clone scam score [{bar(risk)}] {format_score(risk)}   "
+                  f"clone score {format_score(p_clone)} x intent {format_score(intent)}   {lvl}")
         if fired is None and lvl == "HIGH":
             fired = k + 1
             if not json_out:
                 print(f"      >>> INTERVENTION (turn {k + 1}): {msg}")
-    final_risk, _ = fuse(acoustic, intent, cal)   # intent over all turns, same scorer as the trace
-    final_lvl, final_msg = decide(final_risk)
     if json_out:
-        print(json.dumps({"acoustic": round(acoustic, 3), "intent_source": intent_src,
-                          "final_risk": round(final_risk, 3), "final_level": final_lvl,
+        print(json.dumps({"acoustic": round(acoustic, 3) if acoustic is not None else None,
+                          "intent_source": intent_src,
+                          "final_risk": round(final_risk, 3) if final_risk is not None else None,
+                          "final_level": final_lvl,
                           "fired_at_turn": fired, "trace": trace}, indent=2))
     else:
         tail = f"  (first flagged at turn {fired})" if fired else "  (never flagged)"
@@ -92,20 +106,22 @@ def main():
     a = ap.parse_args()
     cal = load_calibration()
     if a.audio:
-        acoustic = AcousticScorer().score(a.audio)
+        waveform = load_audio(a.audio)
+        acoustic = AcousticScorer().score(waveform)
         if a.asr:
-            turns = transcribe(a.audio)
+            turns = transcribe(waveform)
             if not a.json:
                 print("(transcript from ASR of the audio)\n")
         elif a.transcript:
             turns = json.load(open(a.transcript))
         else:
-            turns = [{"text": "(no transcript)"}]
+            turns = []
     else:
         is_clone, turns = SCENARIOS[a.scenario]
         acoustic = acoustic_from_data(is_clone)
     if not a.json:
-        print(f"VoiceGuard  |  calibration c={cal['c']} g={cal['g']}  |  acoustic P(synthetic)={acoustic:.3f}\n")
+        print(f"VoiceGuard  |  score scaling c={cal['c']} g={cal['g']}  |  "
+              f"acoustic score={format_score(acoustic, 3)}\n")
     play(acoustic, turns, cal, json_out=a.json, use_llm=a.llm)
 
 

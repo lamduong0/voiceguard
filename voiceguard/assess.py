@@ -1,25 +1,17 @@
-"""One-shot assessment: an audio file in, a risk verdict out. Shared core for the
-zero-flag CLI (`check.py`) and the drag-drop web app (`app.py`).
+"""Shared recording assessment for check.py and app.py.
 
-Defaults to m2 (`wav2vec2-large-xlsr`), the detector that generalizes to real-world
-audio (RESULTS.md claim 3), calibrated on its In-the-Wild scores — a real call
-recording is the In-the-Wild regime, not the studio ASVspoof one. Intent uses the LLM
-gateway when VG_LLM_KEY is set, else the keyword scorer.
-
-Long-file handling: the acoustic detector is scored per second over the whole file, then
-pooled by CHUNK over ~CHUNK_S-second segments. The verdict uses the *most synthetic*
-chunk, so a short clone inside a long genuine call surfaces instead of being averaged
-away. Each chunk's mean is the same statistic the calibration center was fit on, so the
-sigmoid stays valid. For files <= CHUNK_S this reduces exactly to the whole-file mean.
+The m2 detector uses packaged score scaling from In-the-Wild clips. Long calls
+use the largest mean over overlapping 30-second chunks. This pooling rule and
+the alert thresholds still need validation on paired telephone recordings.
 """
-from voiceguard.detect import (AcousticScorer, transcribe, load_calibration,
-                               fuse, decide, score_intent)
+from voiceguard.detect import (AcousticScorer, transcribe, load_audio, load_calibration,
+                               fuse, decide, score_intent, SAMPLE_RATE, MIN_SAMPLES)
 
 M2 = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
-CAL_DATA, CAL_SOURCE = "data/events_m2_600.json", "itw"
 CHUNK_S, STRIDE_S = 30, 15
-CAVEAT = ("Indicative, not forensic: one open detector on out-of-distribution phone "
-          "audio. Don't rely on this alone for a real decision.")
+CAVEAT = ("Experimental voice-clone scam scores. Probabilities and alert thresholds "
+          "need validation on telephone calls, including long recordings. "
+          "Review scam intent separately when verifying a suspicious request.")
 
 _scorer = None
 
@@ -33,18 +25,15 @@ def _get_scorer():
 
 
 def _pool(windows, cal):
-    """Slide ~CHUNK_S-second chunks (stride STRIDE_S), take the most-synthetic chunk.
-    Returns (peak_start_s, peak_end_s, peak_mean, peak_p_clone, overall_mean, frac_high)."""
+    """Return peak bounds, peak scores, overall mean, and fraction above 0.5."""
     probs = [p for _, p in windows]
     overall = sum(probs) / len(probs)
     frac_high = sum(1 for p in probs if p > 0.5) / len(probs)
     peak, i = None, 0
     while i < len(probs):
         seg = probs[i:i + CHUNK_S]
-        if not seg:
-            break
         m = sum(seg) / len(seg)
-        _, pc = fuse(m, 1.0, cal)                      # calibrated P(clone) for this chunk
+        _, pc = fuse(m, 1.0, cal)
         end_s = windows[min(i + CHUNK_S, len(windows)) - 1][0] + 1
         if peak is None or m > peak[2]:
             peak = (windows[i][0], end_s, m, pc)
@@ -55,26 +44,58 @@ def _pool(windows, cal):
 
 
 def assess(audio_path, model_size="base"):
-    """Transcribe -> per-second acoustic (m2) -> chunk-pool -> multiplicative-veto risk."""
-    turns = transcribe(audio_path, model_size=model_size)
-    windows = _get_scorer().score_windows(audio_path)
-    cal = load_calibration(path=CAL_DATA, source=CAL_SOURCE)
-    intent, intent_src = score_intent(turns) if turns else (0.0, "none")
-    if windows:
-        start_s, end_s, acoustic, p_clone, overall, frac_high = _pool(windows, cal)
-    else:
-        acoustic, overall, frac_high, start_s, end_s = 0.5, 0.5, 0.0, 0, 0
-        _, p_clone = fuse(acoustic, 1.0, cal)
-    risk, _ = fuse(acoustic, intent, cal)              # risk = P(clone) * intent
-    level, advice = decide(risk)
-    long_file = len(windows) > CHUNK_S
-    return {"audio": audio_path, "detector": M2,
-            "acoustic": round(acoustic, 3), "acoustic_overall": round(overall, 3),
-            "p_clone": round(p_clone, 3), "intent": round(intent, 3),
-            "intent_source": intent_src, "risk": round(risk, 3),
-            "level": level, "advice": advice,
-            "duration_s": len(windows), "frac_synthetic": round(frac_high, 2),
-            "pooling": (f"max of {CHUNK_S}s chunks (stride {STRIDE_S}s)"
-                        if long_file else "whole-file mean"),
-            "peak_segment": ({"start": start_s, "end": end_s} if long_file else None),
-            "caveat": CAVEAT, "transcript": turns}
+    """Decode once and combine available acoustic and transcript evidence."""
+    cal = load_calibration(model=M2, source="itw")
+    level, advice = decide(None)
+    result = {
+        "audio": str(audio_path), "detector": M2, "calibration": cal,
+        "acoustic": None, "acoustic_overall": None, "clone_score": None,
+        "p_clone": None,  # Compatibility alias for clone_score.
+        "intent": None, "intent_source": "none", "risk": None,
+        "level": level, "advice": advice, "reasons": [],
+        "duration_s": None, "frac_synthetic": None,
+        "pooling": "whole-file mean", "peak_segment": None,
+        "caveat": CAVEAT, "transcript": [],
+    }
+    try:
+        waveform = load_audio(audio_path)
+    except (ValueError, RuntimeError, OSError, EOFError) as error:
+        result["reasons"].append(f"Audio could not be decoded ({error}).")
+        return result
+    result["duration_s"] = len(waveform) / SAMPLE_RATE
+    if len(waveform) < MIN_SAMPLES:
+        result["reasons"].append("Audio is shorter than the detector's 0.5-second minimum.")
+        return result
+
+    try:
+        result["transcript"] = transcribe(waveform, model_size=model_size)
+    except (ValueError, RuntimeError, OSError) as error:
+        result["reasons"].append(f"Transcription failed ({error}).")
+    intent, intent_src = score_intent(result["transcript"])
+    result["intent"] = round(intent, 3) if intent is not None else None
+    result["intent_source"] = intent_src
+    if intent is None:
+        result["reasons"].append("No usable speech transcript is available.")
+
+    windows = []
+    try:
+        windows = _get_scorer().score_windows(waveform)
+    except (ValueError, RuntimeError, OSError) as error:
+        result["reasons"].append(f"Acoustic scoring failed ({error}).")
+    if not windows:
+        result["reasons"].append("No usable acoustic windows are available.")
+        return result
+
+    start, end, acoustic, clone_score, overall, frac_high = _pool(windows, cal)
+    risk, _ = fuse(acoustic, intent, cal)
+    result.update(
+        acoustic=round(acoustic, 3), acoustic_overall=round(overall, 3),
+        clone_score=round(clone_score, 3), p_clone=round(clone_score, 3),
+        risk=round(risk, 3) if risk is not None else None,
+        frac_synthetic=round(frac_high, 2),
+    )
+    result["level"], result["advice"] = decide(risk)
+    if len(windows) > CHUNK_S:
+        result["pooling"] = f"max of {CHUNK_S}s chunks (stride {STRIDE_S}s)"
+        result["peak_segment"] = {"start": start, "end": min(end, result["duration_s"])}
+    return result
