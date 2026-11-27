@@ -34,8 +34,7 @@ def acoustic_from_data(is_clone, path=None):
     path = path or Path(__file__).parent / "data/acoustic_events_m1.json"
     data = [r for r in json.load(open(path)) if r["source"] == "asv" and r["is_clone"] == is_clone]
     mean_a = lambda r: sum(p for _, p in r["events"]) / len(r["events"])
-    pick = max(data, key=mean_a) if is_clone else min(data, key=mean_a)
-    return mean_a(pick)
+    return mean_a(sorted(data, key=mean_a)[len(data) // 2])   # the median clip, not a best case
 
 
 SCENARIOS = {

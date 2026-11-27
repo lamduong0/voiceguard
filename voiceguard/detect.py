@@ -24,23 +24,27 @@ BATCH = 32  # windows per forward pass, as in the scoring scripts that made the 
 FAKE_LABELS = {"fake", "spoof", "spoofed", "fake_audio", "ai", "aivoice", "synthetic", "deepfake"}
 
 
-def load_calibration(path=None, source="asv", model=DEFAULT_MODEL):
+def load_calibration(path=None, source="asv", model=DEFAULT_MODEL, codec="pcm"):
     """Load packaged score scaling, or fit it from an explicit events file.
 
     Packaged parameters include their detector revision and data provenance. Missing
     or invalid inputs raise an error. These parameters define a heuristic score.
+    `codec` selects the scaling fit on audio passed through that codec (lossy codecs
+    raise the synthetic-voice score); rows and entries without one are "pcm".
     """
     if path is None:
         artifact = json.loads(files("voiceguard").joinpath("calibration.json").read_text())
         for calibration in artifact["calibrations"]:
-            if calibration["model"] == model and calibration["source"] == source:
+            if (calibration["model"] == model and calibration["source"] == source
+                    and calibration.get("codec", "pcm") == codec):
                 if calibration["revision"] != MODEL_REVISIONS.get(model):
                     raise ValueError("Calibration and detector revisions differ")
                 return calibration
-        raise ValueError(f"No packaged calibration for {model} on {source}")
+        raise ValueError(f"No packaged calibration for {model} on {source} ({codec})")
 
     with open(ROOT / path) as handle:
-        data = [row for row in json.load(handle) if row["source"] == source]
+        data = [row for row in json.load(handle)
+                if row["source"] == source and row.get("codec", "pcm") == codec]
     means = {False: [], True: []}
     for row in data:
         scores = [float(p) for _, p in row["events"]]
@@ -69,6 +73,24 @@ def fuse(acoustic, intent, cal):
     clone_score = 1 / (1 + math.exp(-z)) if z >= 0 else math.exp(z) / (1 + math.exp(z))
     risk = clone_score * intent if intent is not None else None
     return risk, clone_score
+
+
+def load_pooling(model=DEFAULT_MODEL, source="asv"):
+    """Packaged center-shift table {speech_seconds: shift} for long calls
+    (experiments/fit_pooling.py)."""
+    artifact = json.loads(files("voiceguard").joinpath("calibration.json").read_text())
+    for pooling in artifact.get("pooling", []):
+        if pooling["model"] == model and pooling["source"] == source:
+            return pooling["shifts"]
+    raise ValueError(f"No packaged pooling shifts for {model} on {source}")
+
+
+def center_shift(seconds, table):
+    """Shift of the center c for a call with `seconds` of scored speech: the peak over
+    many 30 s chunks exceeds c more often than one clip mean does. Interpolated in
+    log(seconds) between the table's lengths and flat beyond its ends."""
+    lengths = sorted(int(k) for k in table)
+    return float(np.interp(np.log(max(seconds, 1)), np.log(lengths), [table[str(n)] for n in lengths]))
 
 
 def format_score(value, digits=2):
@@ -164,13 +186,32 @@ def decide(risk):
     return ("LOW", "Low voice-clone scam score. Verify suspicious requests through a known contact.")
 
 
-def load_audio(path, sr=SAMPLE_RATE, mono=True):
-    """Decode to float32 at `sr`, resampled with librosa like the calibration data.
+LOSSLESS = {"flac", "alac", "wavpack", "tta", "ape", "mlp", "truehd"}
+CODEC_FAMILY = {"aac": "aac", "mp3": "mp3", "mp3float": "mp3", "opus": "opus", "libopus": "opus",
+                "amrnb": "amr_nb", "amr_nb": "amr_nb", "libopencore_amrnb": "amr_nb"}
 
-    Returns 1-D audio. With mono=False, a multi-channel file comes back as
-    (channels, samples) so each speaker can be scored on their own. Containers that
-    libsndfile can't read (m4a/AAC) are decoded by faster-whisper's PyAV at their native
-    rate; resampling stays librosa's, because FFmpeg's resampler shifted detector scores.
+
+def audio_codec(path):
+    """Calibration family of a recording's audio codec: "pcm" for uncompressed or
+    lossless audio, "aac", "mp3", "opus", "amr_nb", the decoder name for anything else,
+    or None when the file can't be probed."""
+    try:
+        import av
+        with av.open(str(path)) as container:
+            name = container.streams.audio[0].codec_context.name
+    except Exception:
+        return None
+    if name.startswith("pcm_") or name in LOSSLESS:
+        return "pcm"
+    return CODEC_FAMILY.get(name, name)
+
+
+def load_audio(path, sr=SAMPLE_RATE):
+    """Decode to mono float32 at `sr`, resampled with librosa like the calibration data.
+
+    Containers that libsndfile can't read (m4a/AAC) are decoded by faster-whisper's PyAV
+    at their native rate; resampling stays librosa's, because FFmpeg's resampler shifted
+    detector scores. Multi-channel audio is averaged (see README on dual-channel calls).
     """
     import soundfile as sf, librosa
     try:
@@ -188,26 +229,13 @@ def load_audio(path, sr=SAMPLE_RATE, mono=True):
             raise ValueError("Recording has no decodable audio stream") from error
         # Splitting stereo avoids FFmpeg's downmix weights; splitting mono would upmix at -3 dB.
         waveform = np.stack(decoded) if stereo else decoded[None, :]
-    if mono or waveform.shape[0] == 1:
-        waveform = waveform.mean(0)
+    waveform = waveform.mean(0)
     if file_sr != sr:
         waveform = librosa.resample(waveform, orig_sr=file_sr, target_sr=sr)
     waveform = waveform.astype(np.float32, copy=False)
     if not np.isfinite(waveform).all():
         raise ValueError("Audio contains non-finite samples")
     return waveform
-
-
-def distinct_channels(audio):
-    """Channels worth scoring on their own. A dual-channel call recording keeps one
-    speaker per channel, so a clone isn't diluted by the other party's genuine voice.
-    Silent channels are dropped; identical channels (mono stored as stereo) become one."""
-    if audio.ndim == 1:
-        return [audio]
-    live = [channel for channel in audio if np.any(channel)]
-    if len(live) == 2 and np.corrcoef(live)[0, 1] > 0.99:
-        return [np.mean(live, axis=0)]
-    return live or [audio.mean(0)]
 
 
 def fake_index(id2label):
@@ -250,17 +278,9 @@ class AcousticScorer:
         self.fake_idx = fake_index(self.m.config.id2label)
 
     def score_windows(self, wav_path):
-        """Per-second (start_second, synthetic score) over the whole file. Multi-channel
-        audio is scored per channel and keeps the most synthetic channel in each window.
-        Pool these (mean for short clips, chunk-max for long ones) downstream."""
-        audio = (load_audio(wav_path, mono=False)
-                 if isinstance(wav_path, (str, os.PathLike)) else np.asarray(wav_path))
-        # ponytail: the per-window max gives a genuine two-speaker call two chances to look
-        # synthetic; calibrate on dual-channel calls if that false-alarm cost matters.
-        per_channel = [self._score_channel(ch) for ch in distinct_channels(audio)]
-        return [(t, max(w[k][1] for w in per_channel)) for k, (t, _) in enumerate(per_channel[0])]
-
-    def _score_channel(self, wav):
+        """Per-second (start_second, synthetic score) over the whole file. Pool these
+        (mean for short clips, chunk-max for long ones) downstream."""
+        wav = load_audio(wav_path) if isinstance(wav_path, (str, os.PathLike)) else np.asarray(wav_path)
         if not np.any(wav):
             return []
         starts = list(range(0, len(wav) - MIN_SAMPLES + 1, SAMPLE_RATE))

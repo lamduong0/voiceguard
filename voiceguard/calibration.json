@@ -26,6 +26,89 @@
       "g": 6.646,
       "mean_genuine": 0.202,
       "mean_clone": 0.619
+    },
+    {
+      "version": 1,
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "revision": "f7050b586236dc910d1157f430def2d0647b02b4",
+      "source": "itw",
+      "codec": "aac",
+      "encoding": "AAC 64 kb/s mono 16 kHz (aac)",
+      "data_path": "data/codec_m2_itw.json",
+      "data_sha256": "ffd46d49eb7e553bbd5cd5cdbfb8cb5ed8ad009cd496c56e90650e00b4cf6746",
+      "statistic": "mean of per-second scores per clip, after encoding and decoding with the checker's loader",
+      "c": 0.3782,
+      "g": 7.427,
+      "mean_genuine": 0.191,
+      "mean_clone": 0.565
+    },
+    {
+      "version": 1,
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "revision": "f7050b586236dc910d1157f430def2d0647b02b4",
+      "source": "itw",
+      "codec": "mp3",
+      "encoding": "MP3 64 kb/s mono 16 kHz (libmp3lame)",
+      "data_path": "data/codec_m2_itw.json",
+      "data_sha256": "ffd46d49eb7e553bbd5cd5cdbfb8cb5ed8ad009cd496c56e90650e00b4cf6746",
+      "statistic": "mean of per-second scores per clip, after encoding and decoding with the checker's loader",
+      "c": 0.4042,
+      "g": 6.628,
+      "mean_genuine": 0.195,
+      "mean_clone": 0.613
+    },
+    {
+      "version": 1,
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "revision": "f7050b586236dc910d1157f430def2d0647b02b4",
+      "source": "itw",
+      "codec": "opus",
+      "encoding": "Opus 24 kb/s mono 16 kHz (libopus)",
+      "data_path": "data/codec_m2_itw.json",
+      "data_sha256": "ffd46d49eb7e553bbd5cd5cdbfb8cb5ed8ad009cd496c56e90650e00b4cf6746",
+      "statistic": "mean of per-second scores per clip, after encoding and decoding with the checker's loader",
+      "c": 0.4806,
+      "g": 7.596,
+      "mean_genuine": 0.298,
+      "mean_clone": 0.663
+    },
+    {
+      "version": 1,
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "revision": "f7050b586236dc910d1157f430def2d0647b02b4",
+      "source": "itw",
+      "codec": "amr_nb",
+      "encoding": "AMR-NB 12.2 kb/s mono 8 kHz (libopencore_amrnb)",
+      "data_path": "data/codec_m2_itw.json",
+      "data_sha256": "ffd46d49eb7e553bbd5cd5cdbfb8cb5ed8ad009cd496c56e90650e00b4cf6746",
+      "statistic": "mean of per-second scores per clip, after encoding and decoding with the checker's loader",
+      "c": 0.4658,
+      "g": 5.97,
+      "mean_genuine": 0.234,
+      "mean_clone": 0.698
+    }
+  ],
+  "pooling": [
+    {
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "source": "itw",
+      "data_path": "data/events_m2_600.json",
+      "data_sha256": "749427110aff9c8a3b908d404abe257daa110d5b399840c21b76980c6c6f5ffd",
+      "statistic": "center shift keeping a simulated genuine call's peak-chunk exceedance of c at the genuine clip rate",
+      "target_exceedance": 0.0983,
+      "caller_share": 0.6,
+      "n_sim": 2000,
+      "seed": 0,
+      "shifts": {
+        "10": 0.0,
+        "30": 0.0,
+        "60": 0.0,
+        "120": 0.0269,
+        "240": 0.0362,
+        "480": 0.0614,
+        "960": 0.0861
+      },
+      "version": 1
     }
   ]
 }

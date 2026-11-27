@@ -5,12 +5,10 @@ transcript turn). The fusion controllers expect fixed-length per-step matrices. 
 module aligns the former to the latter, so `voiceguard.fusion` / `voiceguard.evaluate`
 are reused verbatim -- Stage 2 changes only the *source* of the signals, not the math.
 
-The AcousticDetector / IntentClassifier protocols are the only model-specific seams;
-their concrete implementations depend on the chosen backends (pending decision) and are
-deliberately not committed here.
+Model scoring lives in voiceguard.detect (acoustic) and voiceguard.intent (transcripts).
 """
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Sequence
 import numpy as np
 
 
@@ -24,20 +22,10 @@ class RealCall:
     call_type: str
 
 
-class AcousticDetector(Protocol):
-    def score_chunks(self, audio_path: str) -> Sequence:  # -> [(time_s, synthetic_prob)]
-        ...
-
-
-class IntentClassifier(Protocol):
-    def score_turns(self, turns: Sequence) -> Sequence:   # -> [(time_s, scam_prob)]
-        ...
-
-
-def align_to_timeline(events, T, duration_s, fill=0.5, forward_fill=True):
+def align_to_timeline(events, T, duration_s, fill=0.5):
     """Resample irregular (time, value) events onto T equal steps over [0, duration_s].
     Each step takes the most recent event value at/<= that step (forward fill); steps
-    before the first event get `fill`. If forward_fill is False, gaps revert to `fill`."""
+    before the first event get `fill`."""
     out = np.full(T, float(fill))
     if not len(events):
         return out
@@ -49,12 +37,6 @@ def align_to_timeline(events, T, duration_s, fill=0.5, forward_fill=True):
     idx = np.searchsorted(times, step_edges, side="right") - 1  # latest event index per step
     seen = idx >= 0
     out[seen] = vals[idx[seen]]
-    if not forward_fill:
-        # only keep a value in the step where its event actually lands
-        landed = np.searchsorted(step_edges, times, side="left")
-        out[:] = fill
-        landed = landed[landed < T]
-        out[landed] = vals[: len(landed)]
     return out
 
 

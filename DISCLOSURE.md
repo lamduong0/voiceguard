@@ -99,6 +99,14 @@ rebuttal than the initial small-sample result (+0.251) suggested. Weigh defensiv
 publication accordingly (§9). NOTE: an earlier small-sample estimate of +0.251 was inflated;
 if the filed disclosure or any preprint cited it, correct to +0.123 (see ERRATA.md).
 
+**Stronger baselines (2026-11-27) — this weakens the novelty case further.** Against a
+textbook logistic-regression fusion with an acoustic×intent interaction term, the
+multiplicative veto's advantage is only +0.011 (MelodyMachine×ASVspoof, 7/8 seeds) and
++0.016 (wav2vec2-xlsr×In-the-Wild, 7/8), and a min (AND) rule beats the product by
+0.015–0.018 in both. The demonstrated benefit is that of conjunctive fusion in general,
+which a skilled person would reach with standard tools; it is not specific to the
+multiplicative form. See RESULTS.md, "Claim 2 robustness".
+
 ## 8. Alternatives / variations
 - `î` as max, mean, or last-turn intent; `â` as whole-call or streaming estimate.
 - `c` calibrated globally, per-caller, or per-device.
@@ -113,10 +121,12 @@ expect this" is harder to argue broadly. Recommended route, in order:
 1. **Defensive publication — primary.** arXiv the paper (corrected numbers; see `ERRATA.md`)
    to establish prior art and stop others from patenting the mechanism. Lowest cost, and it
    fully achieves the protective goal regardless of patentability.
-2. **Narrow patent — secondary / optional.** If pursued, claim only claims 1–2 (the
-   multiplicative-veto rule + calibrated center), and support it with the settings where it
-   wins (MelodyMachine×ASVspoof, wav2vec2-xlsr×In-the-Wild; separated bootstrap CIs). Expect
-   obviousness pressure; detector-specificity narrows both the claim and the rebuttal.
+2. **Narrow patent — secondary / optional, and now hard to support.** If pursued, claim
+   only claims 1–2 (the multiplicative-veto rule + calibrated center), and support it with
+   the settings where it wins (MelodyMachine×ASVspoof, wav2vec2-xlsr×In-the-Wild; separated
+   bootstrap CIs for the former). Expect strong obviousness pressure: a standard logistic
+   fusion with an interaction term and a min (AND) rule both match the multiplicative rule
+   (§7), so the evidence shows no advantage for the claimed form over textbook alternatives.
 3. Do **not** assert the broad live-fusion-alert system — prior art (US12284313B1,
    US10455085B1, US9692885B2).
 

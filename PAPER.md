@@ -13,13 +13,15 @@ score for the per-call decision *is this a voice-clone scam?* The key to a meani
 evaluation is a hard negative we call **genuine_scam** — a real human voice making a
 scam-sounding call — which intent alone cannot resolve and on which only the acoustic
 channel carries information. On a constructed benchmark over two public audio datasets and
-two pretrained detectors, evaluated at a matched false-alarm rate with out-of-fold fusion
+four pretrained detectors, evaluated at a matched false-alarm rate with out-of-fold fusion
 fitting and bootstrap confidence intervals, we find: (1) fusion beats either modality
 alone; (2) a *multiplicative* fusion rule, in which the acoustic posterior can veto a
 high-intent call, beats linear (weighted-sum) fusion in two of the detector×dataset
 settings tested (8/8 and 6/8 random seeds), but the benefit is modest (≈0.12–0.13 TPR)
 and detector-specific — two other detectors show no gain, and it does not win when the
-detector is near-perfect or broken; and (3) detector generalization is
+detector is near-perfect or broken. A logistic-regression fusion with an acoustic×intent
+interaction term and a min (AND) rule match it, so the gain belongs to conjunctive fusion,
+not to the multiplicative form; and (3) detector generalization is
 the binding constraint and is strongly model-dependent. We release the benchmark
 construction and analysis to support reproducible, honest evaluation of such defenses.
 
@@ -173,6 +175,17 @@ classes to P(synthetic)≈0 under noise (negative gain at every SNR), and a 4th 
 specific detector×regime combinations with a clear mechanism, but is not a general property
 of multiplicative fusion, and AUC level alone does not predict it.
 
+**Stronger baselines and label noise.** Two more fusion rules, fit out-of-fold the same way,
+test whether the *multiplicative form* matters: logistic regression on (â, î, â·î) and an
+AND rule min(σ(g(â−c)), î). In the two winning settings the multiplicative veto beats the
+logistic-interaction fusion by only +0.011 (m1×ASVspoof, 7/8 seeds) and +0.016
+(m2×In-the-Wild, 7/8), and the AND rule beats the product by 0.015–0.018. Dropping the 3 of
+15 "scam" dialogues that the generating LLM itself rated benign (peak intent 0.1–0.5) moves
+the gain over linear fusion to +0.093 and +0.104, adds a win for m4×ASVspoof (+0.048, 8/8),
+and leaves every conjunctive rule within ±0.04 of the others. The gain over a weighted sum
+is therefore the gain of having an interaction term at all (RESULTS.md, "Claim 2
+robustness").
+
 ### 6.3 Generalization is the binding constraint (claim 3)
 
 Mean P(synthetic) by class:
@@ -233,7 +246,8 @@ detection — but conditionally and modestly. A multiplicative acoustic veto can
 fusion when the detector is informative but imperfect, with a clear mechanism (acoustic
 evidence vetoes a high-intent genuine call); across four detectors it delivered a clean,
 gain in two settings (≈0.12–0.13 TPR; 8/8 and 6/8 seeds) and nothing in the other two, so it is a
-useful tool in the toolbox, not a universal rule. The dominant lever is acoustic-detector
+useful tool in the toolbox, not a universal rule — and any conjunctive rule (an AND, or a
+logistic fusion with an interaction term) does as well as the multiplicative one. The dominant lever is acoustic-detector
 generalization: when it fails, no fusion recovers it. Defenders should invest first in
 detectors that transfer to real-world deepfakes, and treat multiplicative fusion as a
 mechanism to evaluate per detector rather than assume.

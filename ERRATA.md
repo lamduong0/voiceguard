@@ -62,6 +62,19 @@ CIs overlapped both before the fix ([0.490, 0.754] vs [0.411, 0.534]) and after 
 m2×In-the-Wild is now 6/8 seeds rather than 8/8, with overlapping CIs. Figures F1 and F2
 have been regenerated.
 
+## Addendum A — stronger baselines and label noise (2026-11-27; new analysis, not a bug)
+No published number was wrong. Two robustness checks narrow claim 2, and anything public
+that presents the *multiplicative form* as the advance should be qualified:
+- **Stronger baselines.** In the two winning settings, a logistic-regression fusion with an
+  acoustic×intent interaction term trails the multiplicative veto by only 0.011
+  (m1×ASVspoof) and 0.016 (m2×In-the-Wild) TPR, and a min (AND) rule beats it by
+  0.015–0.018. The gain over linear fusion is the gain of any conjunctive rule.
+- **Label noise.** 3 of 15 cached "scam" dialogues self-rate as benign (peak intent
+  0.1–0.5). Without them the gain over linear fusion is +0.093 (m1×ASVspoof) and +0.104
+  (m2×In-the-Wild), plus +0.048 for m4×ASVspoof.
+- **Model identities.** m3 = `mo-thecreator/Deepfake-audio-detection@e4d9874b4933` and m4 =
+  `Hemgg/Deepfake-audio-detection@0d75271368ef`, confirmed by re-scoring (RESULTS.md, Method).
+
 ## Ready-to-paste arXiv v2 comment
 > v2: corrected an AUC tie-handling bug (intent-only baseline 0.83→0.89, other metrics
 > unchanged); expanded the evaluation to four detectors and 600 clips/source, which revised
@@ -81,3 +94,9 @@ evidence and the non-obviousness framing in any continuation/amendment (see DISC
 > paper describes. Multiplicative-vs-linear gain: +0.123 (m1×ASVspoof, 8/8 seeds) and +0.127
 > (m2×In-the-Wild, 6/8 seeds); scope unchanged (2 of 4 detectors), and CIs separate only for
 > m1×ASVspoof.
+
+## Ready-to-paste comment for Addendum A
+> Added baselines: a logistic fusion with an acoustic×intent interaction term comes within
+> 0.01–0.02 TPR of the multiplicative veto, and a min (AND) rule matches or beats it. The
+> advantage over linear fusion is that of conjunctive fusion in general, not of the
+> multiplicative form.

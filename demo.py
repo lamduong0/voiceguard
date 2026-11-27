@@ -35,8 +35,9 @@ def example():
     path = Path(__file__).parent / "data/acoustic_events_m1.json"
     data = [r for r in json.load(open(path)) if r["source"] == "asv"]
     mean_a = lambda r: sum(p for _, p in r["events"]) / len(r["events"])
-    clone_a = mean_a(max((r for r in data if r["is_clone"]), key=mean_a))
-    genuine_a = mean_a(min((r for r in data if not r["is_clone"]), key=mean_a))
+    median = lambda rows: mean_a(sorted(rows, key=mean_a)[len(rows) // 2])   # typical, not best case
+    clone_a = median([r for r in data if r["is_clone"]])
+    genuine_a = median([r for r in data if not r["is_clone"]])
     print(f"calibration (real ASVspoof data): center c={cal['c']}, gain g={cal['g']}, "
           f"genuine~{cal['mean_genuine']}, clone~{cal['mean_clone']}\n")
     report("clone + scam  (AI impostor)", clone_a, SCAM, cal)

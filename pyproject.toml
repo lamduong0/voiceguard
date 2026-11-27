@@ -12,7 +12,6 @@ license = { text = "MIT" }
 dependencies = [
     "numpy>=1.26",
     "openai>=1.40",
-    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +31,8 @@ acoustic = [
 app = ["voiceguard[acoustic]", "gradio>=4.0"]
 # Test runner.
 dev = ["pytest>=8.0"]
+# Paper figures (experiments/make_figures.py).
+figures = ["matplotlib>=3.8"]
 
 [tool.setuptools]
 packages = ["voiceguard"]

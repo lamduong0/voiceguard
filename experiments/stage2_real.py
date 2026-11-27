@@ -5,7 +5,7 @@ matrices). Everything downstream (tune, metrics, controllers) is reused.
 
 Run with no arguments for a PIPELINE SMOKE TEST on fabricated events -- it proves the
 real-signal path is wired end-to-end. It is NOT a result. Real results require plugging
-an AcousticDetector + IntentClassifier over a real paired dataset (see STAGE2.md).
+real acoustic and intent scores over a real paired dataset (see STAGE2.md).
 """
 import numpy as np
 from voiceguard.simulate import Dataset, generate_dataset
@@ -64,7 +64,7 @@ def main():
             continue
         print(f"{name:>9} | {m['det_rate']:>8.3f} | {m['far']:>5.3f} | "
               f"{m['far_hard']:>8.3f} | {m['median_ttd']:>10.1f}")
-    print("\nPipeline OK. Plug real AcousticDetector + IntentClassifier to get real numbers.")
+    print("\nPipeline OK. Feed real acoustic and intent scores to get real numbers.")
 
 
 if __name__ == "__main__":

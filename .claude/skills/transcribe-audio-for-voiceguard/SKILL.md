@@ -45,12 +45,17 @@ more accurate, slower; `base`/`small` is fine for short clips on CPU.
 - `peak_segment` (long calls) says where the most synthetic 30 s are.
 
 ## Gotchas (these bite — verified on real audio)
-- **Lossy audio raises the voice score.** The same speech scored 0.515 lossless and 0.641 as
-  AAC/m4a; MP3 artifacts can spike single windows. Prefer a lossless recording, and
-  cross-check where acoustic spikes against the transcript — a telephony "this number is
-  disconnected" message is genuinely synthetic and *should* score high.
-- **Dual-channel recordings** are scored per channel (most synthetic channel per second),
-  so the other party's genuine voice doesn't dilute a clone. A mono mix can't do that.
+- **Codecs shift the voice score.** The checker detects the codec and uses a matching
+  calibration (`codec` in the JSON): AAC, MP3, Opus, AMR-NB, or uncompressed. Opus still
+  over-alarms about 2×; an uncalibrated codec falls back with a note in `reasons`. MP3
+  artifacts can spike single windows — cross-check where acoustic spikes against the
+  transcript; a telephony "this number is disconnected" message is genuinely synthetic and
+  *should* score high.
+- **Dual-channel recordings are mixed to mono.** Per-channel scoring was tried and removed:
+  m2 scores a quiet line's noise floor as synthetic (~0.7), and at equal false alarms it
+  caught no more clones in simulation.
+- **Long calls**: the verdict uses the most synthetic 30 s, and `center_shift` (in the
+  JSON) raises the center with call length so long genuine calls don't over-alarm.
 - **Keyword intent is coarse** (single-word cues → easy false positives). For real
   transcripts set `VG_LLM_KEY` to use the LLM scorer; the transcript is then sent to
   `VG_LLM_BASE_URL` (OpenAI by default).
