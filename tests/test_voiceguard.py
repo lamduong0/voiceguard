@@ -197,3 +197,40 @@ def test_cli_final_verdict_uses_llm_intent(monkeypatch, capsys):
     # p_clone = sigmoid(10 * 0.4) = 0.98201; risk = 0.98201 * 0.9 = 0.884
     assert out["final_risk"] == pytest.approx(0.884, abs=1e-3)
     assert out["final_level"] == "HIGH"
+
+
+def test_fit_logistic_recovers_known_weights():
+    # Stronger linear-family baseline: logistic regression with an a*i interaction term.
+    from experiments.stage2_roc import fit_logistic
+    rng = np.random.default_rng(0)
+    a, i = rng.uniform(0, 1, 200000), rng.uniform(0, 1, 200000)
+    X = np.column_stack([np.ones_like(a), a, i, a * i])
+    w_true = np.array([-3.0, 2.0, 0.5, 3.0])
+    y = (rng.uniform(size=len(a)) < 1 / (1 + np.exp(-X @ w_true))).astype(float)
+    w = fit_logistic(X, y)
+    loglik = lambda v: np.sum(y * (X @ v) - np.log1p(np.exp(X @ v)))
+    assert loglik(w) >= loglik(w_true)                  # it is the maximum-likelihood fit
+    assert np.allclose(w, w_true, atol=0.25)            # and recovers the generating weights
+
+
+def test_oof_scores_include_interaction_and_and_rule_baselines():
+    from experiments.stage2_roc import oof_scores
+    a = np.array([0.1] * 4 + [0.9] * 4 + [0.9] * 4 + [0.5, 0.5])
+    i = np.array([0.1, 0.9, 0.1, 0.9] + [0.9] * 4 + [0.1] * 4 + [1.0, 0.3])
+    y = np.array([0] * 4 + [1] * 4 + [0] * 4 + [0, 0])
+    clone = np.array([False] * 4 + [True] * 8 + [False, False])
+    sc = oof_scores(a, i, y, [np.array([12, 13])], clone)
+    assert {"logistic", "and_rule"} <= set(sc)
+    # AND rule = min(clone posterior, intent); on the clone/genuine midpoint the posterior is 0.5
+    assert sc["and_rule"][12] == pytest.approx(0.5) and sc["and_rule"][13] == pytest.approx(0.3)
+
+
+def test_drop_weak_scams_removes_only_low_intent_scam_dialogues():
+    # 3 of the 15 cached "scam" dialogues were self-rated <= 0.5 by the LLM that wrote them:
+    # positives whose own intent says benign. The sensitivity run drops them.
+    from experiments.stage2_harden import drop_weak_scams
+    pools = {"scam": [[(0.0, 0.1), (1.0, 0.4)], [(0.0, 0.2), (1.0, 0.95)]],
+             "benign": [[(0.0, 0.05)]], "urgent": [[(0.0, 0.3)]]}
+    out = drop_weak_scams(pools, 0.8)
+    assert out["scam"] == [[(0.0, 0.2), (1.0, 0.95)]]
+    assert out["benign"] == pools["benign"] and out["urgent"] == pools["urgent"]

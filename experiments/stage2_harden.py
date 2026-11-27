@@ -5,14 +5,21 @@ pairing randomness from bootstrap noise) for a given acoustic-events file, so we
 report robustness across seeds and across acoustic models. Headline metric:
 TPR@10%FAR against the genuine_scam hard negative, parallel vs bayesian.
 
-Usage: stage2_harden.py <events.json> [n_seeds]
+Usage: stage2_harden.py <events.json> [n_seeds] [--clean-scam]
 """
 import sys, json, numpy as np
 from voiceguard.intent import build_pools
 from experiments.stage2_run import build_dataset
 from experiments.stage2_roc import auc, operating_point, oof_scores, FAR
 
-METHODS = ["acoustic_only", "intent_only", "parallel", "bayesian"]
+METHODS = ["acoustic_only", "intent_only", "parallel", "bayesian", "logistic", "and_rule"]
+
+
+def drop_weak_scams(pools, min_intent=0.8):
+    """Sensitivity check for label noise: drop "scam" dialogues whose own self-rated peak
+    scam intent is below `min_intent` (3 of the 15 cached ones peak at 0.1-0.5)."""
+    return {k: [d for d in v if k != "scam" or max(x for _, x in d) >= min_intent]
+            for k, v in pools.items()}
 
 
 def one_seed(clips, pools, seed):
@@ -53,16 +60,20 @@ def run(events_path, source, pools, n_seeds):
         print(f"    expected FAR genuine_scam={np.mean(rows[k]['far_gs']):.4f}  "
               f"all={np.mean(rows[k]['far_all']):.4f}  (target {FAR:.2f})")
     # claim-2 head-to-head
-    bg = np.array(rows["bayesian"]["tpr_gs"]); pg = np.array(rows["parallel"]["tpr_gs"])
-    diff = bg - pg
-    print(f"  claim2  bayesian-parallel TPR@FAR_genuine_scam: mean {diff.mean():+.3f}, "
-          f"bayesian>parallel in {int((diff > 0).sum())}/{n_seeds} seeds")
+    bg = np.array(rows["bayesian"]["tpr_gs"])
+    for other in ["parallel", "logistic", "and_rule"]:
+        diff = bg - np.array(rows[other]["tpr_gs"])
+        print(f"  claim2  bayesian-{other} TPR@FAR_genuine_scam: mean {diff.mean():+.3f}, "
+              f"bayesian>{other} in {int((diff > 0).sum())}/{n_seeds} seeds")
 
 
 def main():
     events = sys.argv[1] if len(sys.argv) > 1 else "data/acoustic_events.json"
     n_seeds = int(sys.argv[2]) if len(sys.argv) > 2 else 8
     pools = build_pools()
+    if "--clean-scam" in sys.argv:          # label-noise sensitivity run
+        pools = drop_weak_scams(pools)
+        print("scam dialogues kept:", len(pools["scam"]))
     for src in ["asv", "itw"]:
         run(events, src, pools, n_seeds)
 

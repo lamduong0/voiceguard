@@ -81,30 +81,56 @@ def fit_parallel(a, i, y):
     return best_alpha
 
 
-def fit_bayesian(a, i, y, c):
+def fit_bayesian(a, i, y, c, combine=np.multiply):
+    """Gain g of the acoustic posterior sigmoid(g*(a-c)), chosen by AUC; `combine` joins
+    it with intent (product = the multiplicative veto, np.minimum = an AND rule)."""
     best_g, best = 1.0, -1
     for g in np.linspace(0.5, 25, 25):
-        s = (1 / (1 + np.exp(-g * (a - c)))) * i
+        s = combine(1 / (1 + np.exp(-g * (a - c))), i)
         v = auc(s, y == 1, y == 0)
         if v > best:
             best, best_g = v, g
     return best_g
 
 
+def fit_logistic(X, y, iters=100, l2=1e-3):
+    """Logistic regression by Newton/IRLS (numpy only; a small ridge keeps separable
+    folds finite). The reviewer-standard learned fusion baseline."""
+    w = np.zeros(X.shape[1])
+    for _ in range(iters):
+        p = 1 / (1 + np.exp(-np.clip(X @ w, -30, 30)))
+        H = X.T @ (X * (p * (1 - p))[:, None]) + l2 * np.eye(X.shape[1])
+        step = np.linalg.solve(H, X.T @ (y - p) - l2 * w)
+        w += step
+        if np.abs(step).max() < 1e-8:
+            break
+    return w
+
+
+def _features(a, i):
+    return np.column_stack([np.ones_like(a), a, i, a * i])
+
+
 def oof_scores(a_mean, i_max, y, idx_folds, clone):
     """Out-of-fold per-call scores for each method (no train/test leakage). `clone` is
     the per-call voice label: the acoustic center splits clone vs genuine voices (not
     y, whose negatives include clone_benign calls)."""
-    out = {k: np.zeros(len(y)) for k in ["acoustic_only", "intent_only", "parallel", "bayesian"]}
+    out = {k: np.zeros(len(y)) for k in ["acoustic_only", "intent_only", "parallel", "bayesian",
+                                         "logistic", "and_rule"]}
     for test_idx in idx_folds:
         tr = np.setdiff1d(np.arange(len(y)), test_idx)
         c = (a_mean[tr][clone[tr]].mean() + a_mean[tr][~clone[tr]].mean()) / 2  # calibrated center
         alpha = fit_parallel(a_mean[tr], i_max[tr], y[tr])
         g = fit_bayesian(a_mean[tr], i_max[tr], y[tr], c)
-        out["acoustic_only"][test_idx] = a_mean[test_idx]
-        out["intent_only"][test_idx] = i_max[test_idx]
-        out["parallel"][test_idx] = alpha * a_mean[test_idx] + (1 - alpha) * i_max[test_idx]
-        out["bayesian"][test_idx] = (1 / (1 + np.exp(-g * (a_mean[test_idx] - c)))) * i_max[test_idx]
+        g_and = fit_bayesian(a_mean[tr], i_max[tr], y[tr], c, combine=np.minimum)
+        w = fit_logistic(_features(a_mean[tr], i_max[tr]), (y[tr] == 1).astype(float))
+        a_te, i_te = a_mean[test_idx], i_max[test_idx]
+        out["acoustic_only"][test_idx] = a_te
+        out["intent_only"][test_idx] = i_te
+        out["parallel"][test_idx] = alpha * a_te + (1 - alpha) * i_te
+        out["bayesian"][test_idx] = (1 / (1 + np.exp(-g * (a_te - c)))) * i_te
+        out["logistic"][test_idx] = _features(a_te, i_te) @ w        # logit with a*i interaction
+        out["and_rule"][test_idx] = np.minimum(1 / (1 + np.exp(-g_and * (a_te - c))), i_te)
     return out
 
 
@@ -156,12 +182,13 @@ def run(source, pools, path="data/acoustic_events.json"):
                   f"strict FAR={point['strict_far']:.4f}  tie weight={point['tie_weight']:.4f}  "
                   f"threshold={point['threshold']:.4f}  expected TPR={point['tpr']:.4f}")
     print("-" * len(cols))
-    for label, negatives in [("genuine_scam", gscam), ("all", y == 0)]:
-        gain = tpr_at_far(scores["bayesian"], pos, negatives, FAR) - tpr_at_far(
-            scores["parallel"], pos, negatives, FAR)
-        _, lo, hi = paired_tpr_gain(scores["bayesian"], scores["parallel"], pos, negatives)
-        print(f"  multiplicative - linear ({label}) observed gain={gain:+.3f}  "
-              f"paired bootstrap 95% CI=[{lo:+.3f}, {hi:+.3f}]")
+    for other in ["parallel", "logistic", "and_rule"]:
+        for label, negatives in [("genuine_scam", gscam), ("all", y == 0)]:
+            gain = tpr_at_far(scores["bayesian"], pos, negatives, FAR) - tpr_at_far(
+                scores[other], pos, negatives, FAR)
+            _, lo, hi = paired_tpr_gain(scores["bayesian"], scores[other], pos, negatives)
+            print(f"  multiplicative - {other} ({label}) observed gain={gain:+.3f}  "
+                  f"paired bootstrap 95% CI=[{lo:+.3f}, {hi:+.3f}]")
 
 
 def main():
