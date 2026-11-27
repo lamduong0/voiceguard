@@ -38,3 +38,6 @@ packages = ["voiceguard"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]   # tests import experiments/ and cli.py from the repo root
+
+[tool.setuptools.package-data]
+voiceguard = ["calibration.json"]

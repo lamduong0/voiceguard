@@ -8,6 +8,7 @@ request loads the models; later ones reuse them.
 """
 import gradio as gr
 from voiceguard.assess import assess
+from voiceguard.detect import format_score
 
 LEVEL_COLOR = {"LOW": "#2e7d32", "MEDIUM": "#ef6c00", "HIGH": "#c62828"}
 
@@ -22,13 +23,15 @@ def run(audio_path):
         ps = r["peak_segment"]
         seg = (f"\n- most-synthetic segment **{ps['start']}–{ps['end']}s** "
                f"(whole-file mean {r['acoustic_overall']:.2f}, "
-               f"{int(r['frac_synthetic'] * 100)}% of seconds flagged)")
+               f"{int(r['frac_synthetic'] * 100)}% of scored windows above 0.5)")
+    reasons = "\n\n".join(r["reasons"])
     verdict = (
-        f"## <span style='color:{color}'>{r['level']}</span> &nbsp; risk {r['risk']:.2f}\n\n"
-        f"{r['advice']}\n\n"
-        f"- acoustic P(synthetic) **{r['acoustic']:.2f}** → P(clone) **{r['p_clone']:.2f}** "
+        f"## <span style='color:{color}'>{r['level'].replace('_', ' ')}</span>\n\n"
+        f"Voice-clone scam score **{format_score(r['risk'])}**\n\n"
+        f"{r['advice']}\n\n{reasons}\n\n"
+        f"- acoustic score **{format_score(r['acoustic'])}** → clone score **{format_score(r['clone_score'])}** "
         f"({r['detector'].split('/')[-1]}, {r['pooling']}){seg}\n"
-        f"- scam-intent **{r['intent']:.2f}** ({r['intent_source']})\n\n"
+        f"- scam-intent **{format_score(r['intent'])}** ({r['intent_source']})\n\n"
         f"> {r['caveat']}"
     )
     transcript = "\n".join(f"[{t['t']:5.1f}s] {t['text']}" for t in r["transcript"])
@@ -37,7 +40,7 @@ def run(audio_path):
 
 with gr.Blocks(title="VoiceGuard") as demo:
     gr.Markdown("# VoiceGuard\nDrop in a call recording — it transcribes, scores the voice "
-                "and the conversational intent, and rates the scam risk.")
+                "and the conversational intent, and scores voice-clone scam risk.")
     audio = gr.Audio(type="filepath", label="Call recording (mp3 / wav / m4a)")
     btn = gr.Button("Check", variant="primary")
     verdict = gr.Markdown()

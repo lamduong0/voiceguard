@@ -13,11 +13,11 @@ specific fusion *mechanism* and an honest evaluation methodology.
 ## The mechanism
 
 ```
-risk = sigmoid(g · (â − c)) · î          # â = P(synthetic voice), î = scam-intent, c = calibrated center
+risk_score = sigmoid(g · (â − c)) · î   # â = acoustic score, î = scam-intent, c = fitted center
 ```
 
-A **multiplicative acoustic veto**: strong genuine-voice evidence (small `â`) drives risk to
-zero *regardless of intent*, so it rejects the hard case — a real, panicked relative whose
+A **multiplicative acoustic veto** uses genuine-voice evidence (small `â`) to reduce the
+combined score even when intent is high. It targets the hard case of a panicked relative whose
 words sound like a scam (`genuine_scam`) — where linear (weighted-sum) fusion cries wolf.
 (An earlier *additive/adaptive-threshold* variant was tested and failed; see RESULTS.md.)
 
@@ -26,10 +26,10 @@ words sound like a scam (`genuine_scam`) — where linear (weighted-sum) fusion 
 1. **Fusion beats either modality alone.** Intent alone can't tell a clone-scam from a
    real-voice scam (chance level, ≈0.10 TPR@10%FAR vs `genuine_scam`); acoustic alone is weak on the broad
    negative set. Only fusion is strong on both axes.
-2. **Multiplicative beats linear fusion — but modestly and not universally.** A win of
-   ≈+0.12–0.13 TPR@10%FAR in **2 of 4 detector×dataset settings** (8/8 seeds with
-   separated bootstrap CIs for m1×ASVspoof; 6/8 seeds for m2×In-the-Wild); the others show
-   no gain. It helps in specific
+2. **Multiplicative beats linear fusion in specific settings.** A gain of
+   ≈+0.12–0.13 TPR at nominal 10% FAR appears in **2 of 4 detectors tested**
+   (8/8 seeds with separated bootstrap CIs for m1×ASVspoof, 6/8 seeds for
+   m2×In-the-Wild). It helps in specific
    detector×regime combinations with a clear mechanism, not as a general law.
 3. **Detector generalization is the binding constraint** and is model-dependent: off-the-
    shelf detectors range from chance to strong on real-world (In-the-Wild) deepfakes, and no
@@ -37,10 +37,17 @@ words sound like a scam (`genuine_scam`) — where linear (weighted-sum) fusion 
 
 ## Status
 
-Experimental arc complete and code-reviewed. Drafted: [PAPER.md](PAPER.md) /
+The committed score experiments are reproducible. Drafted: [PAPER.md](PAPER.md) /
 [paper/main.tex](paper/main.tex) (compiles to PDF via `tectonic`), [DISCLOSURE.md](DISCLOSURE.md)
 (narrow invention disclosure), [VENUE.md](VENUE.md), [DATA_SOURCING.md](DATA_SOURCING.md),
 figures F1/F2. Open: real paired scam audio (licensing-gated) and a final venue choice.
+
+The evaluation scripts report the expected false-alarm rate with randomized tie handling
+alongside the nominal 10% FAR target. `stage2_roc.py` also reports the threshold, tie weight,
+and strict-threshold FAR. Finite samples can put FAR slightly above the target.
+`stage2_roc.py` also reports paired bootstrap
+confidence intervals for the multiplicative-minus-linear TPR difference, conditional on
+the fitted scores. Speaker and script holdouts require a new paired-call evaluation.
 
 ## Layout
 
@@ -93,7 +100,25 @@ long calls are chunk-pooled so a localized clone isn't averaged away.
 .venv/bin/python app.py                     # drag-drop upload in the browser
 ```
 Shared core in `voiceguard/assess.py`; needs the `acoustic` extra (`pip install -e ".[acoustic]"`).
-LLM intent kicks in automatically when `VG_LLM_KEY` is set (else a keyword scorer).
+LLM intent runs when `VG_LLM_KEY` is set and sends the transcript to `VG_LLM_BASE_URL`
+(OpenAI by default). The result identifies the intent backend. With the key unset,
+intent uses the local keyword scorer.
+
+The checker shares one decoded waveform between ASR and the acoustic detector. It uses
+the calibration pipeline's soundfile/librosa decoding and resampling, with PyAV for
+containers such as M4A. ASR uses voice activity detection. Audio below the detector's
+0.5-second minimum, missing speech, or missing acoustic evidence produces
+`INSUFFICIENT_EVIDENCE`, with `null` for unavailable scores and a reason in the output.
+
+The displayed values are experimental **scores**. The combined value measures voice-clone
+scam risk, and scam intent is displayed separately. The sigmoid and the 0.30/0.60 alert
+thresholds still need probability calibration and validation on paired telephone calls.
+Long-call max pooling also needs a false-alarm evaluation across recording lengths.
+
+Score-scaling parameters ship in `voiceguard/calibration.json`, with a version, source
+data hash, and pinned runtime detector revision. Default loading is independent of the
+working directory. Explicit calibration files must be valid and contain both classes.
+JSON output includes `clone_score`; the legacy `p_clone` field aliases that score.
 
 Turn-by-turn "live call" player (risk evolves as the scam escalates; intervention fires on
 threshold crossing):

@@ -3,7 +3,7 @@ from voiceguard.simulate import generate_dataset
 from voiceguard.fusion import running_mean, adaptive_fire, bayesian_fire, parallel_fire
 from voiceguard.evaluate import first_true, evaluate, tune
 from voiceguard.realsignals import align_to_timeline, build_matrices, RealCall
-from experiments.stage2_roc import auc, tpr_at_far
+from experiments.stage2_roc import auc, tpr_at_far, operating_point, paired_tpr_gain
 import math
 import pytest
 
@@ -84,6 +84,22 @@ def test_tpr_at_far_empty_negatives_is_nan():
     s = np.array([0.9, 0.8])
     pos = np.array([True, True])
     assert math.isnan(tpr_at_far(s, pos, np.array([False, False]), 0.1))
+
+
+def test_achieved_far_accounts_for_tie_randomization():
+    scores = np.ones(20)
+    pos = np.arange(20) < 10
+    point = operating_point(scores, pos, ~pos, 0.1)
+    assert point == {"tpr": 0.1, "far": 0.1, "threshold": 1.0,
+                     "strict_far": 0.0, "tie_weight": 0.1}
+
+
+def test_paired_interval_for_identical_methods_is_zero(monkeypatch):
+    from experiments import stage2_roc
+    monkeypatch.setattr(stage2_roc, "B", 50)
+    scores = np.linspace(0, 1, 100)
+    pos = np.arange(100) % 2 == 0
+    assert paired_tpr_gain(scores, scores, pos, ~pos) == (0.0, 0.0, 0.0)
 
 
 def test_keyword_intent_ignores_contraction_wont():

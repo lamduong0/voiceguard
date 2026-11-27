@@ -38,7 +38,8 @@ data the per-clip acoustic score is ~constant across the call, so that temporal 
 is a simulation artifact. Stage 2 therefore scores each call as a whole.
 
 **Stage 2 (real data, `experiments/stage2_*.py`).**
-- Audio: In-the-Wild (real-world deepfakes) and ASVspoof 2019 LA, 300 clips/class/source.
+- Audio: In-the-Wild (real-world deepfakes) and ASVspoof 2019 LA, 600 clips/class/source
+  for m1/m2 and 300 for m3/m4. The committed clean m3 scores cover ASVspoof.
 - Acoustic models: `m1 = MelodyMachine/Deepfake-audio-detection-V2`,
   `m2 = Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (run on a Brev L4).
 - Intent: transcripts generated and per-turn-scored by an LLM (45 dialogues, cached).
@@ -46,10 +47,18 @@ is a simulation artifact. Stage 2 therefore scores each call as a whole.
   (benign/urgent/scam) into archetypes. The decisive hard negative is **`genuine_scam`**
   — a genuine voice making a scam-sounding call — where intent alone cannot help and only
   acoustic can. Positive = `clone_scam`.
-- Evaluation: per-call scores; fusion params fit **out-of-fold** (2-fold, no leakage);
-  Bayesian center **calibrated** to data; compared at a **matched false-alarm rate**
-  (TPR @ 10% FAR), with bootstrap CIs (`stage2_roc.py`) and across **8 pairing seeds**
+- Evaluation: per-call scores with fusion parameters and center fit **out-of-fold**
+  (2-fold). TPR uses a **nominal 10% FAR target**, with bootstrap CIs (`stage2_roc.py`)
+  and across **8 pairing seeds**
   (`stage2_harden.py`).
+
+The current metric takes the 90th percentile of negative scores and includes a fraction
+of tied scores through randomized tie handling in expectation. The scripts print expected
+FAR, and `stage2_roc.py` also reports the strict-threshold FAR, tie weights, and thresholds.
+Finite samples can yield a rate slightly above 10%. It also prints a paired bootstrap CI
+for the fusion-method difference using the same sampled calls for both methods. These
+CIs condition on fitted out-of-fold scores and the constructed benchmark. They do not
+measure speaker, script, detector-training, or deployment uncertainty.
 
 Four per-call scorers: `acoustic_only` (mean P-synthetic), `intent_only` (max intent),
 `parallel` (a·acoustic + (1−a)·intent), `bayesian` (sigmoid(g·(acoustic−c))·intent).
@@ -128,7 +137,8 @@ isn't there.
   scam recordings would be stronger evidence.
 - **Semi-synthetic intent.** Transcripts are LLM-generated and LLM-scored, so the intent
   signal is somewhat idealized vs. a real ASR→classifier pipeline.
-- **Scale.** Two acoustic models, two datasets, 300 clips/class/source; genuine_scam is
+- **Scale.** Four acoustic models, two datasets, 600 clips/class/source for m1/m2 and
+  300 for m3/m4; genuine_scam is
   ~25% of negatives, so per-setting CIs are non-trivial (hence 8-seed reporting).
 - **Off-GPU intent / no streaming.** The streaming/time dimension was dropped because
   real per-clip acoustic is ~static; the temporal-accumulation result from Stage 1 does
@@ -139,7 +149,7 @@ isn't there.
 ```
 # Stage 1 (CPU): stage1_mechanism.py, stage1_robustness.py
 # Stage 2 (acoustic scored on GPU -> data/acoustic_events_m{1,2}.json):
-PYTHONPATH=. .venv/bin/python experiments/stage2_roc.py           # iso-FAR + bootstrap CIs
-PYTHONPATH=. .venv/bin/python experiments/stage2_harden.py data/acoustic_events_m1.json 8
-PYTHONPATH=. .venv/bin/python experiments/stage2_harden.py data/acoustic_events_m2.json 8
+python -m experiments.stage2_roc data/events_m1_600.json
+python -m experiments.stage2_harden data/events_m1_600.json 8
+python -m experiments.stage2_harden data/events_m2_600.json 8
 ```
