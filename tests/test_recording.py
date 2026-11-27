@@ -383,3 +383,59 @@ def test_packaged_pooling_shifts_match_the_simulation():
     packaged = detect.load_pooling(model=assessment.M2, source="itw")
     assert packaged == table["shifts"]
 
+
+
+def _encode(path, fmt, encoder, rate):
+    av = pytest.importorskip("av")
+    if encoder not in av.codecs_available:
+        pytest.skip(f"PyAV build lacks the {encoder} encoder")
+    tone = (0.2 * np.sin(2 * np.pi * 440 * np.arange(rate) / rate) * 32767).astype(np.int16)[None, :]
+    with av.open(str(path), "w", format=fmt) as out:
+        stream = out.add_stream(encoder, rate=rate, layout="mono")
+        frame = av.AudioFrame.from_ndarray(tone, format="s16", layout="mono")
+        frame.rate = rate
+        for packet in list(stream.encode(frame)) + list(stream.encode(None)):
+            out.mux(packet)
+    return path
+
+
+@pytest.mark.parametrize("name, fmt, encoder, rate, expected", [
+    ("a.wav", "wav", "pcm_s16le", 16000, "pcm"), ("a.flac", "flac", "flac", 16000, "pcm"),
+    ("a.m4a", "mp4", "aac", 16000, "aac"), ("a.mp3", "mp3", "libmp3lame", 16000, "mp3"),
+    ("a.ogg", "ogg", "libopus", 16000, "opus"), ("a.amr", "amr", "libopencore_amrnb", 8000, "amr_nb"),
+])
+def test_audio_codec_names_the_calibration_family(tmp_path, name, fmt, encoder, rate, expected):
+    assert detect.audio_codec(_encode(tmp_path / name, fmt, encoder, rate)) == expected
+
+
+def test_audio_codec_of_an_unreadable_path_is_unknown():
+    assert detect.audio_codec("no-such-file.m4a") is None
+
+
+def test_lossy_recordings_use_their_codec_calibration(recording, monkeypatch):
+    # AAC raised the m2 score of the same speech 0.515 -> 0.641; an uncompressed-audio
+    # calibration would over-alarm on it.
+    monkeypatch.setattr(assessment, "audio_codec", lambda path: "aac")
+    result = assessment.assess("call.m4a")
+    assert result["codec"] == "aac" and result["calibration"]["codec"] == "aac"
+    assert result["calibration"]["c"] != detect.load_calibration(model=assessment.M2, source="itw")["c"]
+
+
+def test_uncalibrated_codec_falls_back_and_says_so(recording, monkeypatch):
+    monkeypatch.setattr(assessment, "audio_codec", lambda path: "vorbis")
+    result = assessment.assess("call.ogg")
+    assert result["calibration"].get("codec", "pcm") == "pcm"
+    assert any("vorbis" in reason for reason in result["reasons"])
+
+
+def test_packaged_codec_calibrations_match_their_source_data():
+    import hashlib, json
+    root = Path(__file__).resolve().parents[1]
+    entries = [e for e in json.loads((root / "voiceguard/calibration.json").read_text())["calibrations"]
+               if e.get("codec", "pcm") != "pcm"]
+    assert {e["codec"] for e in entries} == {"aac", "mp3", "opus", "amr_nb"}
+    for entry in entries:
+        path = root / entry["data_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["data_sha256"]
+        fitted = detect.load_calibration(path, source="itw", codec=entry["codec"])
+        assert {key: entry[key] for key in fitted} == fitted

@@ -24,23 +24,27 @@ BATCH = 32  # windows per forward pass, as in the scoring scripts that made the 
 FAKE_LABELS = {"fake", "spoof", "spoofed", "fake_audio", "ai", "aivoice", "synthetic", "deepfake"}
 
 
-def load_calibration(path=None, source="asv", model=DEFAULT_MODEL):
+def load_calibration(path=None, source="asv", model=DEFAULT_MODEL, codec="pcm"):
     """Load packaged score scaling, or fit it from an explicit events file.
 
     Packaged parameters include their detector revision and data provenance. Missing
     or invalid inputs raise an error. These parameters define a heuristic score.
+    `codec` selects the scaling fit on audio passed through that codec (lossy codecs
+    raise the synthetic-voice score); rows and entries without one are "pcm".
     """
     if path is None:
         artifact = json.loads(files("voiceguard").joinpath("calibration.json").read_text())
         for calibration in artifact["calibrations"]:
-            if calibration["model"] == model and calibration["source"] == source:
+            if (calibration["model"] == model and calibration["source"] == source
+                    and calibration.get("codec", "pcm") == codec):
                 if calibration["revision"] != MODEL_REVISIONS.get(model):
                     raise ValueError("Calibration and detector revisions differ")
                 return calibration
-        raise ValueError(f"No packaged calibration for {model} on {source}")
+        raise ValueError(f"No packaged calibration for {model} on {source} ({codec})")
 
     with open(ROOT / path) as handle:
-        data = [row for row in json.load(handle) if row["source"] == source]
+        data = [row for row in json.load(handle)
+                if row["source"] == source and row.get("codec", "pcm") == codec]
     means = {False: [], True: []}
     for row in data:
         scores = [float(p) for _, p in row["events"]]
@@ -180,6 +184,26 @@ def decide(risk):
     if risk >= 0.30:
         return ("MEDIUM", "Suspicious. Hang up and call the person back on a known number.")
     return ("LOW", "Low voice-clone scam score. Verify suspicious requests through a known contact.")
+
+
+LOSSLESS = {"flac", "alac", "wavpack", "tta", "ape", "mlp", "truehd"}
+CODEC_FAMILY = {"aac": "aac", "mp3": "mp3", "mp3float": "mp3", "opus": "opus", "libopus": "opus",
+                "amrnb": "amr_nb", "amr_nb": "amr_nb", "libopencore_amrnb": "amr_nb"}
+
+
+def audio_codec(path):
+    """Calibration family of a recording's audio codec: "pcm" for uncompressed or
+    lossless audio, "aac", "mp3", "opus", "amr_nb", the decoder name for anything else,
+    or None when the file can't be probed."""
+    try:
+        import av
+        with av.open(str(path)) as container:
+            name = container.streams.audio[0].codec_context.name
+    except Exception:
+        return None
+    if name.startswith("pcm_") or name in LOSSLESS:
+        return "pcm"
+    return CODEC_FAMILY.get(name, name)
 
 
 def load_audio(path, sr=SAMPLE_RATE):

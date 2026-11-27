@@ -67,7 +67,8 @@ python3.11 -m venv .venv
 .venv/bin/pip install -e .                 # core (CPU): sim, analysis, offline demo, LLM intent
 .venv/bin/pip install -e ".[acoustic]"     # + real acoustic scoring & ASR (torch/transformers)
 .venv/bin/pip install -e ".[app]"          # + the drag-drop web app (gradio)
-.venv/bin/pip install -e ".[acoustic,app,dev]"   # everything, incl. pytest
+.venv/bin/pip install -e ".[figures]"      # + matplotlib, for experiments/make_figures.py
+.venv/bin/pip install -e ".[acoustic,app,figures,dev]"   # everything, incl. pytest
 ```
 Dependencies are declared in `pyproject.toml` (single source); the `requirements*.txt` files
 are thin shims that map to these extras. An editable install puts `voiceguard` on the path,
@@ -106,23 +107,52 @@ intent uses the local keyword scorer.
 
 The checker decodes once for ASR and the acoustic detector. Resampling is always
 librosa's, like the calibration pipeline's; PyAV only decodes containers such as M4A at
-their native rate, since FFmpeg's resampler shifted detector scores. ASR uses voice
-activity detection, and the acoustic score uses only the one-second windows that overlap
-detected speech. A dual-channel recording is scored per channel, keeping the most synthetic
-channel in each window, so the other party's genuine voice doesn't dilute a clone; ASR
-hears the mix.
-
-**Lossy audio raises the voice score.** The calibration was fit on uncompressed clips. In
-one test (TTS speech, m2), the same 12 s of audio scored mean 0.515 from the lossless
-original but 0.641 as AAC/M4A, so compressed call recordings lean toward false alarms.
-Prefer a lossless recording when you have one. Audio below the detector's
-0.5-second minimum, missing speech, or missing acoustic evidence produces
-`INSUFFICIENT_EVIDENCE`, with `null` for unavailable scores and a reason in the output.
+their native rate, since FFmpeg's resampler shifted detector scores. Multi-channel audio is
+averaged to mono. ASR uses voice activity detection, and the acoustic score uses only the
+one-second windows that overlap detected speech. Audio below the detector's 0.5-second
+minimum, missing speech, or missing acoustic evidence produces `INSUFFICIENT_EVIDENCE`,
+with `null` for unavailable scores and a reason in the output.
 
 The displayed values are experimental **scores**. The combined value measures voice-clone
-scam risk, and scam intent is displayed separately. The sigmoid and the 0.30/0.60 alert
-thresholds still need probability calibration and validation on paired telephone calls.
-Long-call max pooling also needs a false-alarm evaluation across recording lengths.
+scam risk, and scam intent is displayed separately.
+
+**Codec-matched calibration.** Lossy codecs shift m2's scores, so the checker uses the
+scaling fit on In-the-Wild clips passed through the recording's codec (`codec` in the
+output). `scripts/score_codecs.py` produced `data/codec_m2_itw.json`: the 1,200 clips
+behind the uncompressed calibration, each encoded and decoded through the checker's
+loader. Mean score genuine / clone, and genuine clips flagged HIGH (intent at its
+maximum) with the uncompressed calibration vs the codec's own:
+
+| codec (as fit) | genuine / clone | HIGH on genuine: uncompressed cal. → own |
+|---|---|---|
+| uncompressed (WAV, FLAC, ALAC) | 0.20 / 0.62 | 7.5% |
+| AAC 64 kb/s | 0.19 / 0.57 | 5.3% → 7.0% |
+| MP3 64 kb/s | 0.20 / 0.61 | 6.7% → 7.2% |
+| Opus 24 kb/s | 0.30 / 0.66 | 20.2% → 15.0% |
+| AMR-NB 12.2 kb/s | 0.23 / 0.70 | 9.2% → 5.3% |
+
+Opus still over-alarms about 2× at HIGH. Other codecs (e.g. Vorbis) fall back to the
+uncompressed calibration with a reason, and other bit rates may shift further. (A
+one-clip TTS test once suggested AAC raises scores; on real speech it lowers both classes
+slightly.)
+
+**Long calls.** A long call is judged by its most synthetic 30-second chunk, and more
+chunks give a genuine call more chances to cross the center c. Simulating calls from the
+per-second In-the-Wild scores (`experiments/fit_pooling.py`; two speakers taking turns,
+each one clip's scores resampled), a genuine call crosses c 9.8% of the time per clip but
+12.4% at 2 minutes of speech and 16.9% at 16 minutes. The checker raises c by the fitted
+shift (0 up to 1 minute, +0.027 at 2, +0.061 at 8, +0.086 at 16; `center_shift` in the
+output), which holds it at 9.8% and lowers clone-scam detection from 0.69–0.77 to
+0.65–0.68. Real calls drift more than one resampled clip, so treat this as a floor.
+
+**Dual-channel calls** are mixed to mono. Per-channel scoring was tried and removed: m2
+scores a quiet line's noise floor as synthetic (0.65–0.79 at −60 to −40 dBFS), and in the
+same simulation it caught no more clones at an equal false-alarm rate.
+
+**Alert thresholds.** On uncompressed In-the-Wild clips with intent at its maximum (a
+genuine voice saying scam-like words), MEDIUM (≥ 0.30) flags 20.5% of genuine and 84% of
+clone clips, and HIGH (≥ 0.60) flags 7.5% and 67%. These are clip-level operating points;
+probability calibration and validation on paired telephone calls are still open.
 
 Score-scaling parameters ship in `voiceguard/calibration.json`, with a version, source
 data hash, and pinned runtime detector revision. Default loading is independent of the

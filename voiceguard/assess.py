@@ -5,8 +5,8 @@ use the largest mean over overlapping 30-second chunks. This pooling rule and
 the alert thresholds still need validation on paired telephone recordings.
 """
 from voiceguard.detect import (AcousticScorer, transcribe, load_audio, load_calibration,
-                               load_pooling, center_shift, fuse, decide, score_intent,
-                               SAMPLE_RATE, MIN_SAMPLES)
+                               load_pooling, center_shift, audio_codec, fuse, decide,
+                               score_intent, SAMPLE_RATE, MIN_SAMPLES)
 
 M2 = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
 CHUNK_S, STRIDE_S = 30, 15
@@ -57,7 +57,14 @@ def speech_windows(windows, turns):
 
 def assess(audio_path, model_size="base"):
     """Decode once and combine available acoustic and transcript evidence."""
-    cal = load_calibration(model=M2, source="itw")
+    codec = audio_codec(audio_path)
+    try:   # lossy codecs raise the synthetic-voice score; use the scaling fit through them
+        cal = load_calibration(model=M2, source="itw", codec=codec or "pcm")
+        uncalibrated = None
+    except ValueError:
+        cal = load_calibration(model=M2, source="itw")
+        uncalibrated = (f"No calibration for the {codec} codec; using the uncompressed-audio "
+                        "calibration, so a lossy recording may over-alarm.")
     level, advice = decide(None)
     result = {
         "audio": str(audio_path), "detector": M2, "calibration": cal,
@@ -67,8 +74,10 @@ def assess(audio_path, model_size="base"):
         "level": level, "advice": advice, "reasons": [],
         "duration_s": None, "frac_synthetic": None,
         "pooling": "whole-file mean", "peak_segment": None, "center_shift": None,
-        "caveat": CAVEAT, "transcript": [],
+        "caveat": CAVEAT, "transcript": [], "codec": codec,
     }
+    if uncalibrated:
+        result["reasons"].append(uncalibrated)
     try:
         waveform = load_audio(audio_path)
     except (ValueError, RuntimeError, OSError, EOFError) as error:
