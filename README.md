@@ -104,9 +104,18 @@ LLM intent runs when `VG_LLM_KEY` is set and sends the transcript to `VG_LLM_BAS
 (OpenAI by default). The result identifies the intent backend. With the key unset,
 intent uses the local keyword scorer.
 
-The checker shares one decoded waveform between ASR and the acoustic detector. It uses
-the calibration pipeline's soundfile/librosa decoding and resampling, with PyAV for
-containers such as M4A. ASR uses voice activity detection. Audio below the detector's
+The checker decodes once for ASR and the acoustic detector. Resampling is always
+librosa's, like the calibration pipeline's; PyAV only decodes containers such as M4A at
+their native rate, since FFmpeg's resampler shifted detector scores. ASR uses voice
+activity detection, and the acoustic score uses only the one-second windows that overlap
+detected speech. A dual-channel recording is scored per channel, keeping the most synthetic
+channel in each window, so the other party's genuine voice doesn't dilute a clone; ASR
+hears the mix.
+
+**Lossy audio raises the voice score.** The calibration was fit on uncompressed clips. In
+one test (TTS speech, m2), the same 12 s of audio scored mean 0.515 from the lossless
+original but 0.641 as AAC/M4A, so compressed call recordings lean toward false alarms.
+Prefer a lossless recording when you have one. Audio below the detector's
 0.5-second minimum, missing speech, or missing acoustic evidence produces
 `INSUFFICIENT_EVIDENCE`, with `null` for unavailable scores and a reason in the output.
 

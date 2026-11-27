@@ -1,12 +1,13 @@
 """Local (CPU) acoustic scoring on ASVspoof 2019 LA via the HF mirror — no GPU needed.
 Used to add a 3rd detector for the claim-2 robustness check.
 
-  PYTHONPATH=. .venv/bin/python scripts/score_local.py --model <hf_id> --out data/x.json --n 300
+  .venv/bin/python scripts/score_local.py --model <hf_id> --out data/x.json --n 300
 """
 import io, json, argparse, statistics as st
 import soundfile as sf, librosa, numpy as np, torch
 from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
 from datasets import load_dataset, Audio
+from voiceguard.detect import fake_index
 
 SR, WIN, MAXW = 16000, 16000, 30
 
@@ -14,9 +15,7 @@ SR, WIN, MAXW = 16000, 16000, 30
 def load_model(mid):
     fe = AutoFeatureExtractor.from_pretrained(mid)
     m = AutoModelForAudioClassification.from_pretrained(mid).eval()
-    fl = [i for i, l in m.config.id2label.items()
-          if str(l).lower() in ("fake", "spoof", "spoofed", "fake_audio", "ai", "synthetic")]
-    fi = fl[0] if fl else 0
+    fi = fake_index(m.config.id2label)
     print("MODEL", mid, m.config.id2label, "fake_idx", fi, flush=True)
     return fe, m, fi
 
