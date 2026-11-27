@@ -73,9 +73,11 @@ For normal use, prefer the version floors above.
 ## Run
 ```bash
 .venv/bin/python -m pytest tests -q
-.venv/bin/python experiments/stage1_mechanism.py                         # Stage 1 sim
-.venv/bin/python experiments/stage2_harden.py data/events_m1_600.json 8  # claim 2
+.venv/bin/python -m experiments.stage1_mechanism                         # Stage 1 sim
+.venv/bin/python -m experiments.stage2_harden data/events_m1_600.json 8  # claim 2
 ```
+Run experiments as modules (`-m`) from the repo root: `experiments/` isn't part of the
+installed package, and `-m` puts the repo root on the path.
 
 ## Demo
 End-to-end prototype: audio + transcript → multiplicative-veto risk → in-call intervention.

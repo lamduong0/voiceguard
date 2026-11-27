@@ -5,6 +5,7 @@ from voiceguard.evaluate import first_true, evaluate, tune
 from voiceguard.realsignals import align_to_timeline, build_matrices, RealCall
 from experiments.stage2_roc import auc, tpr_at_far
 import math
+import pytest
 
 
 def test_running_mean():
@@ -101,3 +102,82 @@ def test_tune_respects_far_budget():
     assert best is not None
     _, m = best
     assert m["far"] <= 0.05
+
+
+def test_tpr_at_far_splits_ties_at_threshold():
+    # Negatives tied at the threshold must be split so the achieved FAR equals the
+    # target; positives tied there get the same share. A strict `>` reports 0 here.
+    neg_tied = np.full(10, 1.0)
+    pos_tied = np.full(5, 1.0)
+    s = np.concatenate([pos_tied, neg_tied])
+    pos = np.arange(15) < 5
+    assert tpr_at_far(s, pos, ~pos, 0.1) == pytest.approx(0.1)
+    # 8 negatives at 0 and 2 tied at the 90th-percentile threshold 1.0: flag half of
+    # the tied ones. Positives: one above (2.0), two tied (1.0), one below (0.5)
+    # -> 1/4 + 0.5 * 2/4 = 0.5.
+    s = np.array([2.0, 1.0, 1.0, 0.5] + [0.0] * 8 + [1.0, 1.0])
+    pos = np.arange(14) < 4
+    assert tpr_at_far(s, pos, ~pos, 0.1) == pytest.approx(0.5)
+
+
+def test_oof_center_calibrated_on_clone_label():
+    # The acoustic center must split clone vs genuine voices. clone_benign calls are
+    # negatives (y=0) but clone voices; averaging them into the negative mean drags
+    # the center up (0.7 here instead of 0.5).
+    from experiments.stage2_roc import oof_scores
+    a = np.array([0.1] * 4 + [0.9] * 4 + [0.9] * 4 + [0.5])  # genuine, clone_scam, clone_benign, probe
+    i = np.array([0.1, 0.9, 0.1, 0.9] + [0.9] * 4 + [0.1] * 4 + [1.0])
+    y = np.array([0] * 4 + [1] * 4 + [0] * 4 + [0])
+    clone = np.array([False] * 4 + [True] * 8 + [False])
+    sc = oof_scores(a, i, y, [np.array([12])], clone)
+    # probe sits exactly on the clone/genuine midpoint with intent 1 -> sigmoid(0) * 1
+    assert sc["bayesian"][12] == pytest.approx(0.5)
+
+
+def test_load_calibration_independent_of_cwd(tmp_path, monkeypatch):
+    # Run from another directory: must still read the repo's data, not silently fall
+    # back to m1/ASV defaults (c=0.21) for the m2/ITW detector (c=0.4102).
+    from voiceguard.detect import load_calibration
+    monkeypatch.chdir(tmp_path)
+    assert load_calibration(path="data/events_m2_600.json", source="itw")["c"] == pytest.approx(0.4102)
+
+
+def test_load_calibration_missing_file_raises():
+    from voiceguard.detect import load_calibration
+    with pytest.raises(FileNotFoundError):
+        load_calibration(path="data/does_not_exist.json")
+
+
+def test_load_audio_decodes_m4a_to_16k_mono(tmp_path):
+    # Call recordings arrive as m4a (AAC), which libsndfile cannot decode.
+    pytest.importorskip("faster_whisper")
+    pytest.importorskip("librosa")
+    import av
+    from voiceguard.detect import load_audio
+    path = str(tmp_path / "call.m4a")
+    sr = 44100
+    tone = (0.2 * np.sin(2 * np.pi * 440 * np.arange(2 * sr) / sr)).astype(np.float32)
+    with av.open(path, "w", format="mp4") as out:
+        st = out.add_stream("aac", rate=sr, layout="stereo")
+        frame = av.AudioFrame.from_ndarray(np.stack([tone, tone]), format="fltp", layout="stereo")
+        frame.rate = sr
+        for pkt in list(st.encode(frame)) + list(st.encode(None)):
+            out.mux(pkt)
+    wav = load_audio(path)
+    assert wav.ndim == 1
+    assert abs(len(wav) - 2 * 16000) < 0.05 * 16000   # ~2 s at 16 kHz (AAC priming/padding)
+    assert 0.1 < np.sqrt(np.mean(wav ** 2)) < 0.2       # the 0.2-amplitude tone (RMS 0.141), not silence
+
+
+def test_cli_final_verdict_uses_llm_intent(monkeypatch, capsys):
+    # With --llm, the final verdict must use the LLM intent the trace used, not the
+    # keyword scorer (which rates these benign-looking words ~0.05).
+    import json as _json
+    import cli
+    monkeypatch.setattr(cli, "score_intent", lambda turns: (0.9, "llm"))
+    turns = [{"text": "How was your week?"}, {"text": "See you soon."}]
+    cli.play(0.9, turns, {"c": 0.5, "g": 10.0}, json_out=True, use_llm=True)
+    out = _json.loads(capsys.readouterr().out)
+    # p_clone = sigmoid(10 * 0.4) = 0.98201; risk = 0.98201 * 0.9 = 0.884
+    assert out["final_risk"] == pytest.approx(0.884, abs=1e-3)
+    assert out["final_level"] == "HIGH"

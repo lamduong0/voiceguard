@@ -21,7 +21,7 @@ def one_seed(clips, pools, seed):
     pos, gscam = ds.positive, ds.call_type == "genuine_scam"
     y = np.where(pos, 1, np.where(~pos, 0, -1))
     folds = np.array_split(np.random.default_rng(seed).permutation(len(y)), 2)
-    sc = oof_scores(a_mean, i_max, y, folds)
+    sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
     out = {}
     for k, s in sc.items():
         out[k] = (auc(s, y == 1, y == 0),

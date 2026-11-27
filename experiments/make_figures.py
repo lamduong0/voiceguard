@@ -30,7 +30,7 @@ ds = build_dataset(data, pools, seed=0)
 a_mean, i_max = ds.acoustic.mean(1), ds.intent.max(1)
 y = np.where(ds.positive, 1, np.where(~ds.positive, 0, -1))
 folds = np.array_split(np.random.default_rng(0).permutation(len(y)), 2)
-sc = oof_scores(a_mean, i_max, y, folds)
+sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
 
 plt.figure(figsize=(5, 4.2))
 for name, label in [("acoustic_only", "acoustic only"), ("intent_only", "intent only"),

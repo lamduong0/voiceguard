@@ -19,7 +19,7 @@ def metrics_one_seed(clips, pools, seed):
     pos, gscam = ds.positive, ds.call_type == "genuine_scam"
     y = np.where(pos, 1, np.where(~pos, 0, -1))
     folds = np.array_split(np.random.default_rng(seed).permutation(len(y)), 2)
-    sc = oof_scores(a_mean, i_max, y, folds)
+    sc = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
     aco_auc = auc(sc["acoustic_only"], y == 1, y == 0)
     bg = tpr_at_far(sc["bayesian"], y == 1, gscam, FAR)
     pg = tpr_at_far(sc["parallel"], y == 1, gscam, FAR)
