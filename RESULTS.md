@@ -11,10 +11,13 @@ Three defensible findings:
 
 1. **Cross-modal fusion (acoustic + conversational intent) beats either signal alone.**
    Each modality fails a different hard case; fusion is the only thing strong on both.
-2. **Multiplicative/Bayesian fusion beats linear (weighted-sum) fusion in the realistic
-   regime where the acoustic detector is informative but imperfect** — 8/8 and 6/8 seeds
-   in two independent model×dataset settings. It does not win when the detector is
-   near-perfect and is moot when the detector is broken.
+2. **Conjunctive fusion beats linear (weighted-sum) fusion in the realistic regime where
+   the acoustic detector is informative but imperfect** — the multiplicative veto wins in
+   8/8 and 6/8 seeds in two independent model×dataset settings. It does not win when the
+   detector is near-perfect and is moot when the detector is broken. **The multiplicative
+   form itself is not special:** logistic regression with an acoustic×intent interaction
+   term comes within +0.01–0.02 TPR of it, and a min (AND) rule slightly beats it
+   ([robustness](#claim-2-robustness--stronger-baselines-and-label-noise)).
 3. **Acoustic-detector generalization is model-dependent and is the binding constraint.**
    A stronger SSL detector transfers to real-world deepfakes; a weaker one collapses to
    chance. No amount of intent fusion recovers a broken acoustic channel.
@@ -40,8 +43,13 @@ is a simulation artifact. Stage 2 therefore scores each call as a whole.
 **Stage 2 (real data, `experiments/stage2_*.py`).**
 - Audio: In-the-Wild (real-world deepfakes) and ASVspoof 2019 LA, 600 clips/class/source
   for m1/m2 and 300 for m3/m4. The committed clean m3 scores cover ASVspoof.
-- Acoustic models: `m1 = MelodyMachine/Deepfake-audio-detection-V2`,
-  `m2 = Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (run on a Brev L4).
+- Acoustic models (Hugging Face id @ revision; m1/m2 scored on a Brev L4):
+  `m1 = MelodyMachine/Deepfake-audio-detection-V2@de3cde5a29c4`,
+  `m2 = Gustking/wav2vec2-large-xlsr-deepfake-audio-classification@f7050b586236`,
+  `m3 = mo-thecreator/Deepfake-audio-detection@e4d9874b4933`,
+  `m4 = Hemgg/Deepfake-audio-detection@0d75271368ef` (labels `AIVoice`/`HumanVoice`).
+  m3/m4 were identified after the fact by re-scoring the first ASVspoof clips, which
+  reproduces the committed scores to within 1e-4.
 - Intent: transcripts generated and per-turn-scored by an LLM (45 dialogues, cached).
 - **Constructed benchmark** crosses audio (genuine/clone) with transcript intent
   (benign/urgent/scam) into archetypes. The decisive hard negative is **`genuine_scam`**
@@ -76,7 +84,9 @@ ASVspoof, detector m1, 600 clips/class/source, 8 pairing seeds (mean ± std):
 
 `intent_only` → 0.098 against genuine_scam, i.e. chance at a 10% FAR (cannot tell a
 clone-scam from a real-voice scam); `acoustic_only` → 0.406 against the broad negative set. Fusion is the only thing
-strong on both axes.
+strong on both axes — at a price on the hard negative: against genuine_scam alone,
+`acoustic_only` (0.679) beats every fusion rule (bayesian 0.606), because fusion also has
+to reject benign-intent calls.
 
 ## Claim 2 — multiplicative > linear fusion (the patent-relevant mechanism)
 
@@ -113,7 +123,45 @@ Net: claim 2 holds where demonstrated (real, mechanistically motivated; seed-rob
 separated CIs for m1×ASV, 6/8 seeds for m2×ITW) but is **detector/setting-specific and
 modest (~+0.12–0.13)**, not a general
 property of multiplicative fusion. The honest contribution is "it can help, here is the
-mechanism and where it shows up," not "it always helps."
+mechanism and where it shows up," not "it always helps." The robustness checks below
+narrow it further: the gain belongs to conjunctive fusion in general, not to the
+multiplicative form.
+
+### Claim 2 robustness — stronger baselines and label noise
+
+Two fusion baselines were added to `oof_scores` and fit out-of-fold like the others:
+`logistic` (logistic regression on â, î and â·î) and `and_rule`
+(min(sigmoid(g·(â−c)), î) with its own fitted gain). TPR@10%FAR vs genuine_scam, 8 seeds,
+multiplicative minus each (seeds where multiplicative wins):
+
+| setting | − linear | − logistic (â, î, â·î) | − AND (min) |
+|---|---|---|---|
+| m1 × ASVspoof | +0.123 (8/8) | +0.011 (7/8) | −0.018 (0/8) |
+| m2 × In-the-Wild | +0.127 (6/8) | +0.016 (7/8) | −0.015 (1/8) |
+| m2 × ASVspoof | −0.030 (0/8) | −0.033 (0/8) | −0.012 (0/8) |
+| m4 × ASVspoof | −0.047 (1/8) | −0.037 (0/8) | −0.033 (0/8) |
+| m4 × In-the-Wild | −0.024 (3/8) | +0.002 (2/8) | −0.018 (2/8) |
+| m1 × In-the-Wild | −0.067 (0/8) | −0.008 (2/8) | +0.000 (3/8) |
+| m3 × ASVspoof | −0.134 (0/8) | −0.134 (0/8) | −0.001 (1/8) |
+
+**Label noise.** 3 of the 15 cached "scam" dialogues peak at a self-rated intent of only
+0.1–0.5, so some `clone_scam` positives carry benign-looking intent. Dropping them
+(`stage2_harden.py ... --clean-scam`, 12 scam dialogues left):
+
+| setting | − linear | − logistic | − AND |
+|---|---|---|---|
+| m1 × ASVspoof | +0.093 (6/8) | −0.006 (2/8) | −0.009 (1/8) |
+| m2 × In-the-Wild | +0.104 (7/8) | −0.006 (1/8) | −0.004 (1/8) |
+| m4 × ASVspoof | +0.048 (8/8) | +0.003 (3/8) | −0.002 (2/8) |
+| m4 × In-the-Wild | −0.016 (2/8) | +0.036 (4/8) | −0.025 (0/8) |
+| m2 × ASVspoof, m3 × ASVspoof | ≈0 (ceiling) | ≈0 | ≈0 |
+| m1 × In-the-Wild | −0.045 (2/8) | −0.014 (3/8) | +0.009 (6/8) |
+
+What this changes: the advantage over a *weighted sum* is real in the informative-but-
+imperfect settings (and with clean labels it appears for m4×ASVspoof too), but it is the
+advantage of having a conjunctive/interaction term at all. A textbook logistic regression
+with an interaction feature gets essentially all of it, and the AND rule does as well or
+slightly better. Claims about the multiplicative form specifically are not supported.
 
 ## Claim 3 — generalization is the binding constraint (and model-dependent)
 
@@ -136,7 +184,8 @@ isn't there.
   trivially sufficient; adding the `genuine_scam` hard negative fixed that. Real paired
   scam recordings would be stronger evidence.
 - **Semi-synthetic intent.** Transcripts are LLM-generated and LLM-scored, so the intent
-  signal is somewhat idealized vs. a real ASR→classifier pipeline.
+  signal is somewhat idealized vs. a real ASR→classifier pipeline. The generating LLM
+  also mislabels: 3 of 15 "scam" dialogues self-rate as benign (robustness table above).
 - **Scale.** Four acoustic models, two datasets, 600 clips/class/source for m1/m2 and
   300 for m3/m4; genuine_scam is
   ~25% of negatives, so per-setting CIs are non-trivial (hence 8-seed reporting).
@@ -152,4 +201,5 @@ isn't there.
 python -m experiments.stage2_roc data/events_m1_600.json
 python -m experiments.stage2_harden data/events_m1_600.json 8
 python -m experiments.stage2_harden data/events_m2_600.json 8
+python -m experiments.stage2_harden data/events_m2_600.json 8 --clean-scam   # label-noise check
 ```

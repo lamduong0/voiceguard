@@ -32,7 +32,9 @@ alone; (2) a \emph{multiplicative} fusion rule, in which the acoustic posterior 
 high-intent call, beats linear (weighted-sum) fusion in two of the detector$\times$dataset
 settings tested (8/8 and 6/8 random seeds), but the gain is modest
 ($\approx$0.12--0.13 TPR) and detector-specific---two other detectors show none, and it
-does not win when the detector is near-perfect or broken; and (3) detector
+does not win when the detector is near-perfect or broken. A logistic-regression fusion
+with an acoustic$\times$intent interaction term and a min (AND) rule match it, so the gain
+belongs to conjunctive fusion rather than the multiplicative form; and (3) detector
 generalization is the binding constraint and is strongly model-dependent. We release the
 benchmark construction and analysis to support reproducible, honest evaluation.
 \end{abstract}
@@ -183,6 +185,17 @@ that \emph{does} degrade gracefully still shows no win in its informative band. 
 helps in specific detector$\times$regime combinations with a clear mechanism, but is not a
 general property of multiplicative fusion, and AUC level alone does not predict it.
 
+\paragraph{Stronger baselines and label noise.} Logistic regression on
+$(\hat a, \hat\imath, \hat a\hat\imath)$ and an AND rule
+$\min(\sigma(g(\hat a-c)), \hat\imath)$, fit out-of-fold the same way, test whether the
+multiplicative form matters. In the two winning settings the multiplicative veto beats the
+logistic-interaction fusion by only $+0.011$ (m1$\times$ASVspoof, 7/8 seeds) and $+0.016$
+(m2$\times$In-the-Wild, 7/8), and the AND rule beats the product by 0.015--0.018. Dropping
+the 3 of 15 ``scam'' dialogues the generating LLM rated benign moves the gain over linear
+fusion to $+0.093$ and $+0.104$, adds a win for m4$\times$ASVspoof ($+0.048$, 8/8), and
+leaves every conjunctive rule within $\pm0.04$ of the others: the gain over a weighted sum
+is the gain of having an interaction term.
+
 \subsection{Generalization is the binding constraint}\label{sec:c3}
 Mean P(synthetic) by class:
 \begin{center}\small
@@ -229,7 +242,8 @@ methodology to help defenders and establish prior art.
 Fusing intent with an acoustic deepfake detector can help---conditionally and modestly. A
 multiplicative acoustic veto beat linear fusion in two of four detectors
 ($\approx$0.12--0.13 TPR; 8/8 and 6/8 seeds) with a clear mechanism, and did nothing
-in the other two, so it is a tool to evaluate per detector rather than a universal rule. The
+in the other two, so it is a tool to evaluate per detector rather than a universal rule; an
+AND rule or a logistic fusion with an interaction term does as well. The
 dominant lever is acoustic-detector generalization: when it fails, no fusion recovers it.
 
 \appendix
