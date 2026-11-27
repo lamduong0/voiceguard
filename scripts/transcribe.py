@@ -1,16 +1,16 @@
 """Create a VoiceGuard transcript from an audio file (offline ASR, CPU-friendly).
 
-  PYTHONPATH=. .venv/bin/python scripts/transcribe.py call.mp3
-  PYTHONPATH=. .venv/bin/python scripts/transcribe.py call.mp3 --out turns.json --txt transcript.txt --model small
+  .venv/bin/python scripts/transcribe.py call.mp3
+  .venv/bin/python scripts/transcribe.py call.mp3 --out turns.json --txt transcript.txt --model small
 
 Writes turns.json in the format `cli.py --transcript` expects (a list of {"t","text"}),
 plus an optional human-readable, timestamped transcript you can inspect or edit. Then
 score the real call:
 
-  PYTHONPATH=. .venv/bin/python cli.py --audio call.mp3 --transcript turns.json
+  .venv/bin/python cli.py --audio call.mp3 --transcript turns.json
 
 (or `cli.py --audio call.mp3 --asr` to transcribe + score in one step). Needs
-`pip install -r requirements-acoustic.txt` (faster-whisper).
+`pip install -e ".[acoustic]"` (faster-whisper).
 """
 import json, argparse
 from voiceguard.detect import transcribe
