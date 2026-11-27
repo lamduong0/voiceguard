@@ -30,9 +30,9 @@ four pretrained detectors, evaluated at a matched false-alarm rate with out-of-f
 fitting and bootstrap confidence intervals, we find: (1) fusion beats either modality
 alone; (2) a \emph{multiplicative} fusion rule, in which the acoustic posterior can veto a
 high-intent call, beats linear (weighted-sum) fusion in two of the detector$\times$dataset
-settings tested (8/8 random seeds, non-overlapping CIs), but the gain is modest
-($\approx$0.12--0.14 TPR) and detector-specific---two other detectors show none, and the two
-tie when the detector is near-perfect or broken; and (3) detector
+settings tested (8/8 and 6/8 random seeds), but the gain is modest
+($\approx$0.12--0.13 TPR) and detector-specific---two other detectors show none, and it
+does not win when the detector is near-perfect or broken; and (3) detector
 generalization is the binding constraint and is strongly model-dependent. We release the
 benchmark construction and analysis to support reproducible, honest evaluation.
 \end{abstract}
@@ -138,13 +138,13 @@ ASVspoof, detector m1, 600 clips/class/source, 8 seeds (mean $\pm$ std):
 method & AUC & TPR@10\%FAR vs gen.\_scam & TPR@10\%FAR vs all-neg \\
 \midrule
 acoustic\_only & $0.770\pm0.006$ & $0.679\pm0.031$ & $0.406\pm0.026$ \\
-intent\_only & $0.894\pm0.009$ & $0.000\pm0.000$ & $0.000\pm0.000$ \\
+intent\_only & $0.894\pm0.009$ & $0.098\pm0.003$ & $0.502\pm0.047$ \\
 parallel & $0.933\pm0.010$ & $0.484\pm0.067$ & $0.708\pm0.064$ \\
-bayesian & $\mathbf{0.950\pm0.005}$ & $0.606\pm0.053$ & $\mathbf{0.804\pm0.035}$ \\
+bayesian & $\mathbf{0.950\pm0.005}$ & $0.606\pm0.054$ & $\mathbf{0.803\pm0.032}$ \\
 \bottomrule
 \end{tabular}
 \end{center}
-Intent alone is useless against \textsc{genuine\_scam} (0.000); acoustic alone is weak
+Intent alone is at chance against \textsc{genuine\_scam} (0.098 at a 10\% FAR); acoustic alone is weak
 against the broad negative set (0.406). Only fusion is strong on both axes
 (Figure~\ref{fig:roc}).
 
@@ -161,20 +161,21 @@ bayesian $-$ parallel, TPR@10\%FAR vs \textsc{genuine\_scam}, 8 seeds (600 clips
 \toprule
 setting & acoustic regime & bayesian $-$ parallel & seeds won \\
 \midrule
-m1 $\times$ ASVspoof & informative, imperfect & $+0.122$ & 8/8 \\
-m2 $\times$ In-the-Wild & informative, imperfect & $+0.135$ & 8/8 \\
-m2 $\times$ ASVspoof & near-perfect & $-0.010$ & tie \\
-m4 $\times$ ASVspoof & near-perfect (clean) & $-0.018$ & tie \\
-m4 $\times$ In-the-Wild & informative (clean) & $-0.031$ & no win \\
-m1 $\times$ In-the-Wild & broken & $+0.033$ & both $\approx$0 \\
+m1 $\times$ ASVspoof & informative, imperfect & $+0.123$ & 8/8 \\
+m2 $\times$ In-the-Wild & informative, imperfect & $+0.127$ & 6/8 \\
+m2 $\times$ ASVspoof & near-perfect & $-0.030$ & no win \\
+m4 $\times$ ASVspoof & near-perfect (clean) & $-0.047$ & no win \\
+m4 $\times$ In-the-Wild & informative (clean) & $-0.024$ & no win \\
+m1 $\times$ In-the-Wild & broken & $-0.067$ & both $\approx$ chance \\
 \bottomrule
 \end{tabular}
 \end{center}
 Where it appears (m1$\times$ASVspoof, m2$\times$In-the-Wild) the multiplicative veto wins
-across all 8 seeds and the bootstrap CIs do not overlap (m1$\times$ASVspoof at 600 clips:
-bayesian $[0.604,0.707]$ vs parallel $[0.422,0.533]$). But the scaled-up run (four
+in 8/8 and 6/8 seeds. The bootstrap CIs separate for m1$\times$ASVspoof (600 clips:
+bayesian $[0.600,0.705]$ vs parallel $[0.422,0.533]$); for m2$\times$In-the-Wild the
+single-seed CIs overlap (bayesian $[0.491,0.762]$ vs parallel $[0.411,0.534]$). But the scaled-up run (four
 detectors, 600 clips) shows the effect is \emph{modest and not universal}. (i) With more
-data the m1$\times$ASVspoof gain shrank from $+0.251$ (300 clips) to $+0.122$ (600), so the
+data the m1$\times$ASVspoof gain shrank from $+0.251$ (300 clips) to $+0.123$ (600), so the
 small-sample estimate was inflated. (ii) Only two of four detectors show a clean win: a
 third (mo-thecreator) collapses both classes to P(synthetic)\,$\approx$\,0 under additive
 noise rather than degrading gracefully (negative gain at every SNR), and a fourth (Hemgg)
@@ -195,15 +196,15 @@ m2 & $0.353 \to 0.896$ & $0.212 \to 0.634$ \\
 \end{tabular}
 \end{center}
 The weaker detector collapses to chance on real-world deepfakes; the stronger SSL detector
-transfers. When acoustic is broken, every method scores $\sim$0 against
-\textsc{genuine\_scam}.
+transfers. When acoustic is broken, every method is at or below chance ($\lesssim$0.10)
+against \textsc{genuine\_scam}.
 
 \subsection{Fusion gain vs.\ detector quality}\label{sec:sweep}
 We add white noise at decreasing SNR (clean $\to$ 0\,dB), sweeping detector m2 from
 informative to chance, and measure the multiplicative$-$linear gain against detector quality
 (acoustic-only AUC). The gain is largest in the informative-but-imperfect band (AUC
-$\approx0.73$--$0.86$), peaking at $+0.171$ on ASVspoof, and collapses to a tie when the
-detector is near-perfect or at chance (Figure~\ref{fig:sweep}). On ASVspoof a small negative
+$\approx0.73$--$0.86$), peaking at $+0.159$ on ASVspoof, and is $\approx$0 or slightly
+negative when the detector is near-perfect or at chance (Figure~\ref{fig:sweep}). On ASVspoof a small negative
 dip appears in the weak-but-not-chance band, where absolute detection is low for both rules.
 
 \begin{figure}[t]\centering
@@ -227,7 +228,7 @@ methodology to help defenders and establish prior art.
 \section{Conclusion}
 Fusing intent with an acoustic deepfake detector can help---conditionally and modestly. A
 multiplicative acoustic veto beat linear fusion in two of four detectors
-($\approx$0.12--0.14 TPR, seed-robust, CIs separate) with a clear mechanism, and did nothing
+($\approx$0.12--0.13 TPR; 8/8 and 6/8 seeds) with a clear mechanism, and did nothing
 in the other two, so it is a tool to evaluate per detector rather than a universal rule. The
 dominant lever is acoustic-detector generalization: when it fails, no fusion recovers it.
 

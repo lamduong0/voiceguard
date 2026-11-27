@@ -12,9 +12,9 @@ Three defensible findings:
 1. **Cross-modal fusion (acoustic + conversational intent) beats either signal alone.**
    Each modality fails a different hard case; fusion is the only thing strong on both.
 2. **Multiplicative/Bayesian fusion beats linear (weighted-sum) fusion in the realistic
-   regime where the acoustic detector is informative but imperfect** — 8/8 seeds across
-   two independent model×dataset settings. It ties when the detector is near-perfect and
-   is moot when the detector is broken.
+   regime where the acoustic detector is informative but imperfect** — 8/8 and 6/8 seeds
+   in two independent model×dataset settings. It does not win when the detector is
+   near-perfect and is moot when the detector is broken.
 3. **Acoustic-detector generalization is model-dependent and is the binding constraint.**
    A stronger SSL detector transfers to real-world deepfakes; a weaker one collapses to
    chance. No amount of intent fusion recovers a broken acoustic channel.
@@ -61,12 +61,12 @@ ASVspoof, detector m1, 600 clips/class/source, 8 pairing seeds (mean ± std):
 | method | AUC | TPR@10%FAR vs genuine_scam | TPR@10%FAR vs all-neg |
 |---|---|---|---|
 | acoustic_only | 0.770 ± 0.006 | 0.679 ± 0.031 | 0.406 ± 0.026 |
-| intent_only | 0.894 ± 0.009 | **0.000 ± 0.000** | 0.000 ± 0.000 |
+| intent_only | 0.894 ± 0.009 | **0.098 ± 0.003** | 0.502 ± 0.047 |
 | parallel | 0.933 ± 0.010 | 0.484 ± 0.067 | 0.708 ± 0.064 |
-| **bayesian** | **0.950 ± 0.005** | 0.606 ± 0.053 | **0.804 ± 0.035** |
+| **bayesian** | **0.950 ± 0.005** | 0.606 ± 0.054 | **0.803 ± 0.032** |
 
-`intent_only` → 0.000 against genuine_scam (cannot tell a clone-scam from a real-voice
-scam); `acoustic_only` → 0.406 against the broad negative set. Fusion is the only thing
+`intent_only` → 0.098 against genuine_scam, i.e. chance at a 10% FAR (cannot tell a
+clone-scam from a real-voice scam); `acoustic_only` → 0.406 against the broad negative set. Fusion is the only thing
 strong on both axes.
 
 ## Claim 2 — multiplicative > linear fusion (the patent-relevant mechanism)
@@ -76,30 +76,33 @@ m1/m2; 300 for m3/m4):
 
 | setting | acoustic regime | bayesian − parallel | seeds bayesian wins |
 |---|---|---|---|
-| m1 × ASVspoof | informative, imperfect | **+0.122** | **8/8** |
-| m2 × In-the-Wild | informative, imperfect | **+0.135** | **8/8** |
-| m2 × ASVspoof | near-perfect | −0.010 | 1/8 (tie) |
-| m4 × ASVspoof | near-perfect (clean) | −0.018 | 2/8 (tie) |
-| m4 × In-the-Wild | informative (clean) | −0.031 | 3/8 (no win) |
-| m1 × In-the-Wild | broken | +0.033 | 8/8 (both ≈ 0) |
+| m1 × ASVspoof | informative, imperfect | **+0.123** | **8/8** |
+| m2 × In-the-Wild | informative, imperfect | **+0.127** | **6/8** |
+| m2 × ASVspoof | near-perfect | −0.030 | 0/8 (no win) |
+| m4 × ASVspoof | near-perfect (clean) | −0.047 | 1/8 (no win) |
+| m4 × In-the-Wild | informative (clean) | −0.024 | 3/8 (no win) |
+| m1 × In-the-Wild | broken | −0.067 | 0/8 (both ≈ chance) |
 
-Where it appears (m1×ASV, m2×ITW) the multiplicative veto wins across all 8 seeds and the
-bootstrap CIs do not overlap (m1×ASV at 600 clips: bayesian [0.604, 0.707] vs parallel
-[0.422, 0.533]) — acoustic evidence vetoes a high-intent genuine call where linear mixing
-dilutes it.
+Where it appears (m1×ASV, m2×ITW) the multiplicative veto wins in 8/8 and 6/8 seeds; the
+bootstrap CIs separate for m1×ASV (600 clips: bayesian [0.600, 0.705] vs parallel
+[0.422, 0.533]); for m2×ITW the single-seed CIs overlap (bayesian [0.491, 0.762] vs
+parallel [0.411, 0.534]), so that setting rests on the 6/8-seed result. The mechanism: acoustic evidence vetoes a high-intent genuine call where
+linear mixing dilutes it.
 
 **But the scaled-up run (4 detectors, 600 clips) makes the effect modest and clearly
 *not universal* — this is the honest headline:**
-- **Magnitude shrank with more data.** m1×ASV was +0.251 at 300 clips; at 600 it is +0.122.
-  The small-sample estimate was inflated. m2×ITW is stable (+0.136 → +0.135).
+- **Magnitude shrank with more data.** m1×ASV was +0.251 at 300 clips; at 600 it is +0.123.
+  The small-sample estimate was inflated. m2×ITW: +0.136 (300) → +0.135 (600) before the
+  ERRATA Correction 3 fixes, +0.127 (6/8 seeds) after.
 - **Only 2 of 4 detectors show a clean win.** A 4th detector (m4, Hemgg) that separates both
   datasets and degrades *gracefully* still shows **no** win — near-perfect/tie on clean
-  (both sources, −0.018 / −0.031) and ≈0 gain across its whole degradation sweep. A 3rd (m3,
+  (both sources, −0.047 / −0.024) and ≈0 gain across its whole degradation sweep. A 3rd (m3,
   mo-thecreator) collapses under noise (both classes → P_fake ≈ 0, no graded signal) and
   never wins. AUC level alone does not predict where the veto helps.
 
-Net: claim 2 holds where demonstrated (real, seed-robust, mechanistically motivated, CIs
-separate) but is **detector/setting-specific and modest (~+0.12–0.14)**, not a general
+Net: claim 2 holds where demonstrated (real, mechanistically motivated; seed-robust with
+separated CIs for m1×ASV, 6/8 seeds for m2×ITW) but is **detector/setting-specific and
+modest (~+0.12–0.13)**, not a general
 property of multiplicative fusion. The honest contribution is "it can help, here is the
 mechanism and where it shows up," not "it always helps."
 
@@ -113,8 +116,9 @@ Mean P(synthetic) by class (sanity check that the detector separates the data):
 | m2 (wav2vec2-xlsr) | 0.353 → 0.896 ✓ | 0.212 → 0.634 ✓ |
 
 The weaker detector fails to generalize to real-world (In-the-Wild) deepfakes; the
-stronger SSL detector transfers. When acoustic is broken (m1 × ITW), every method scores
-~0 against genuine_scam — fusion cannot manufacture a signal that isn't there.
+stronger SSL detector transfers. When acoustic is broken (m1 × ITW), every method is at
+or below chance (≲0.10) against genuine_scam — fusion cannot manufacture a signal that
+isn't there.
 
 ## Threats to validity
 

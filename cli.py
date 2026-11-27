@@ -49,7 +49,7 @@ def bar(x, width=22):
 
 def play(acoustic, turns, cal, json_out=False, use_llm=False):
     trace, fired = [], None
-    intent_src = "keyword"
+    intent, intent_src = 0.0, "keyword"
     if use_llm and not json_out:
         print("(scoring intent via LLM gateway)\n")
     for k, turn in enumerate(turns):
@@ -68,7 +68,7 @@ def play(acoustic, turns, cal, json_out=False, use_llm=False):
             fired = k + 1
             if not json_out:
                 print(f"      >>> INTERVENTION (turn {k + 1}): {msg}")
-    final_risk, _ = fuse(acoustic, keyword_intent(turns), cal)
+    final_risk, _ = fuse(acoustic, intent, cal)   # intent over all turns, same scorer as the trace
     final_lvl, final_msg = decide(final_risk)
     if json_out:
         print(json.dumps({"acoustic": round(acoustic, 3), "intent_source": intent_src,

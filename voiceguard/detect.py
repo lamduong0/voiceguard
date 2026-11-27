@@ -5,24 +5,27 @@ uses the real pretrained model when torch/transformers + an audio file are avail
 import); the bundled demo uses real precomputed per-window scores so it runs offline.
 """
 import os, json, math, re, statistics as st
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent  # repo root (data/ lives here)
 
 DEFAULT_MODEL = "MelodyMachine/Deepfake-audio-detection-V2"
 
 
 def load_calibration(path="data/acoustic_events_m1.json", source="asv"):
     """Center c and gain g for the acoustic veto, calibrated on real data from the regime
-    where the detector works (ASVspoof). Falls back to sane defaults if data is absent."""
-    try:
-        data = [r for r in json.load(open(path)) if r["source"] == source]
-        mean_a = lambda r: sum(p for _, p in r["events"]) / len(r["events"])
-        mg = st.mean([mean_a(r) for r in data if not r["is_clone"]])
-        mc = st.mean([mean_a(r) for r in data if r["is_clone"]])
-        c = (mg + mc) / 2
-        g = math.log(4) / max(mc - c, 1e-3)        # maps clone mean ~0.8, genuine ~0.2
-        return {"c": round(c, 4), "g": round(g, 3), "mean_genuine": round(mg, 3),
-                "mean_clone": round(mc, 3)}
-    except Exception:
-        return {"c": 0.21, "g": 7.3, "mean_genuine": 0.03, "mean_clone": 0.40}
+    where the detector works (ASVspoof). A relative `path` resolves against the repo
+    root, so this works from any working directory. A missing file raises rather than
+    falling back to defaults: a silent fallback hands one detector another's calibration."""
+    with open(ROOT / path) as f:
+        data = [r for r in json.load(f) if r["source"] == source]
+    mean_a = lambda r: sum(p for _, p in r["events"]) / len(r["events"])
+    mg = st.mean([mean_a(r) for r in data if not r["is_clone"]])
+    mc = st.mean([mean_a(r) for r in data if r["is_clone"]])
+    c = (mg + mc) / 2
+    g = math.log(4) / max(mc - c, 1e-3)        # maps clone mean ~0.8, genuine ~0.2
+    return {"c": round(c, 4), "g": round(g, 3), "mean_genuine": round(mg, 3),
+            "mean_clone": round(mc, 3)}
 
 
 def fuse(acoustic, intent, cal):
@@ -85,12 +88,26 @@ def decide(risk):
     return ("LOW", "No strong clone+scam signal. Proceed with normal caution.")
 
 
+def load_audio(path, sr=16000):
+    """Decode an audio file to `sr` Hz mono float32. Same decode + resample as the
+    scoring scripts that produced the calibration data (soundfile + librosa); formats
+    libsndfile can't read (m4a/AAC) fall back to faster-whisper's bundled FFmpeg."""
+    import soundfile as sf, librosa
+    try:
+        wav, file_sr = sf.read(path, dtype="float32")
+    except RuntimeError:                      # sf.LibsndfileError: unsupported format
+        from faster_whisper import decode_audio
+        return decode_audio(path, sampling_rate=sr)
+    if wav.ndim > 1:
+        wav = wav.mean(1)
+    return librosa.resample(wav, orig_sr=file_sr, target_sr=sr) if file_sr != sr else wav
+
+
 def transcribe(audio_path, model_size="base"):
     """ASR an audio file into timestamped turns via faster-whisper (CPU). Returns
     [{"t": start_s, "text": ...}]; pass these as the intent transcript."""
-    import librosa
     from faster_whisper import WhisperModel
-    wav, _ = librosa.load(audio_path, sr=16000, mono=True)
+    wav = load_audio(audio_path)
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
     segments, _ = model.transcribe(wav)   # auto-detect language (don't force English)
     return [{"t": float(s.start), "text": s.text.strip()} for s in segments if s.text.strip()]
@@ -111,12 +128,7 @@ class AcousticScorer:
     def score_windows(self, wav_path):
         """Per-1s-window (start_second, P(synthetic)) over the whole file — no length cap.
         Pool these (mean for short clips, chunk-max for long ones) downstream."""
-        import soundfile as sf, librosa
-        wav, sr = sf.read(wav_path, dtype="float32")
-        if wav.ndim > 1:
-            wav = wav.mean(1)
-        if sr != 16000:
-            wav = librosa.resample(wav, orig_sr=sr, target_sr=16000)
+        wav = load_audio(wav_path)
         out = []
         for i in range(0, len(wav), 16000):
             ch = wav[i:i + 16000]

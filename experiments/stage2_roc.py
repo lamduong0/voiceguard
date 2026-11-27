@@ -48,10 +48,16 @@ def auc(scores, pos, neg):
 
 
 def tpr_at_far(scores, pos, neg, far):
+    """TPR at the threshold whose FAR is `far`. Scores tied at the threshold are split
+    (randomized tie-break, in expectation) so the achieved FAR equals `far`; a strict
+    `>` would report 0 TPR whenever >= far of the negatives tie at the top."""
     if not np.any(neg):
         return float("nan")
-    thr = np.quantile(scores[neg], 1 - far)
-    return (scores[pos] > thr).mean()
+    sn, sp = scores[neg], scores[pos]
+    thr = np.quantile(sn, 1 - far)
+    above, at = (sn > thr).mean(), (sn == thr).mean()
+    w = min(1.0, max(0.0, (far - above) / at)) if at else 0.0
+    return (sp > thr).mean() + w * (sp == thr).mean()
 
 
 def fit_parallel(a, i, y):
@@ -74,12 +80,14 @@ def fit_bayesian(a, i, y, c):
     return best_g
 
 
-def oof_scores(a_mean, i_max, y, idx_folds):
-    """Out-of-fold per-call scores for each method (no train/test leakage)."""
+def oof_scores(a_mean, i_max, y, idx_folds, clone):
+    """Out-of-fold per-call scores for each method (no train/test leakage). `clone` is
+    the per-call voice label: the acoustic center splits clone vs genuine voices (not
+    y, whose negatives include clone_benign calls)."""
     out = {k: np.zeros(len(y)) for k in ["acoustic_only", "intent_only", "parallel", "bayesian"]}
     for test_idx in idx_folds:
         tr = np.setdiff1d(np.arange(len(y)), test_idx)
-        c = (a_mean[tr][y[tr] == 1].mean() + a_mean[tr][y[tr] == 0].mean()) / 2  # calibrated center
+        c = (a_mean[tr][clone[tr]].mean() + a_mean[tr][~clone[tr]].mean()) / 2  # calibrated center
         alpha = fit_parallel(a_mean[tr], i_max[tr], y[tr])
         g = fit_bayesian(a_mean[tr], i_max[tr], y[tr], c)
         out["acoustic_only"][test_idx] = a_mean[test_idx]
@@ -109,7 +117,7 @@ def run(source, pools, path="data/acoustic_events.json"):
 
     perm = RNG.permutation(len(y))
     folds = np.array_split(perm, 2)
-    scores = oof_scores(a_mean, i_max, y, folds)
+    scores = oof_scores(a_mean, i_max, y, folds, ds.is_clone)
 
     print(f"\n### source={source}  n={len(y)}  pos(clone_scam)={int(pos.sum())}  genuine_scam={int(gscam.sum())}")
     cols = f"{'method':>14} | {'AUC':>18} | {'TPR@10%FAR_genuine_scam':>30} | {'TPR@10%FAR_all':>24}"
