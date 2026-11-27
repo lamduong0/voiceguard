@@ -82,21 +82,22 @@ negative, multiplicative beats linear in two settings:
 
 | setting | acoustic regime | Δ TPR@10%FAR (mult − linear) | seeds won |
 |---|---|---|---|
-| MelodyMachine × ASVspoof | informative, imperfect | +0.122 | 8/8 |
-| wav2vec2-xlsr × In-the-Wild | informative, imperfect | +0.135 | 8/8 |
-| wav2vec2-xlsr × ASVspoof | near-perfect | −0.010 | tie |
-| Hemgg × ASVspoof / In-the-Wild | near-perfect / informative | −0.018 / −0.031 | no win |
+| MelodyMachine × ASVspoof | informative, imperfect | +0.123 | 8/8 |
+| wav2vec2-xlsr × In-the-Wild | informative, imperfect | +0.127 | 6/8 |
+| wav2vec2-xlsr × ASVspoof | near-perfect | −0.030 | no win |
+| Hemgg × ASVspoof / In-the-Wild | near-perfect / informative | −0.047 / −0.024 | no win |
 | mo-thecreator × ASVspoof | collapses under noise | ≤ 0 | no win |
 
-Bootstrap CIs separate where it wins (MelodyMachine×ASVspoof: bayesian [0.604, 0.707] vs
-parallel [0.422, 0.533]). **Honest scope (after a larger run):** the gain is real and
-seed-robust where it appears but modest (~+0.12–0.14) and shows in only 2 of 4 detectors
+Bootstrap CIs separate for MelodyMachine×ASVspoof (bayesian [0.600, 0.705] vs parallel
+[0.422, 0.533]); for wav2vec2-xlsr×In-the-Wild they overlap (6/8 seeds won). **Honest
+scope (after a larger run):** the gain is real where it appears but modest (~+0.12–0.13)
+and shows in only 2 of 4 detectors
 tested; AUC level alone does not predict it. The **non-obviousness** hook — a multiplicative
 veto recovering the high-intent genuine case where linear fusion fails — holds in those
 settings, but because the effect is detector-specific it is a weaker broad obviousness
 rebuttal than the initial small-sample result (+0.251) suggested. Weigh defensive
 publication accordingly (§9). NOTE: an earlier small-sample estimate of +0.251 was inflated;
-if the filed disclosure or any preprint cited it, correct to +0.122.
+if the filed disclosure or any preprint cited it, correct to +0.123 (see ERRATA.md).
 
 ## 8. Alternatives / variations
 - `î` as max, mean, or last-turn intent; `â` as whole-call or streaming estimate.
@@ -106,7 +107,7 @@ if the filed disclosure or any preprint cited it, correct to +0.122.
 
 ## 9. Filing recommendation (reassessed after the scale-up)
 The larger run weakened the empirical non-obviousness case: the multiplicative-veto gain is
-modest (~+0.12–0.14) and shows in only 2 of 4 detectors, so "a skilled person would not
+modest (~+0.12–0.13) and shows in only 2 of 4 detectors, so "a skilled person would not
 expect this" is harder to argue broadly. Recommended route, in order:
 
 1. **Defensive publication — primary.** arXiv the paper (corrected numbers; see `ERRATA.md`)

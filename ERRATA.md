@@ -1,6 +1,6 @@
 # Errata / changelog — reconciling the first filed/posted version with current
 
-Two corrections landed after the initial invention disclosure / preprint. Anything already
+Three corrections landed after the initial invention disclosure / preprint. Anything already
 public (arXiv, the filed disclosure) should be reconciled to the values below. The repo docs
 (RESULTS.md, PAPER.md, paper/main.tex, DISCLOSURE.md, figures) are already updated.
 
@@ -22,6 +22,46 @@ Doubling clips and adding two detectors revised the central claim-2 result **dow
 - Claim 2 reframed: **real where it appears (8/8 seeds, CIs separate) but modest (~+0.12–0.14)
   and detector-specific, not universal.** F1 figure regenerated (intent AUC label 0.823→0.886).
 
+## Correction 3 — TPR tie handling + acoustic-center calibration (2026-11-27, from code review)
+Two evaluation bugs in `experiments/stage2_roc.py`, each fixed with a regression test:
+- **`tpr_at_far()` dropped tied scores.** It counted positives strictly above the
+  90th-percentile negative score. 77% of scam calls clip to intent_max = 1.0, so more than
+  10% of negatives tied at the threshold and every tied positive was dropped. Ties at the
+  threshold are now split (randomized tie-break, in expectation), so the achieved FAR equals
+  the target.
+  - `intent_only` TPR@10%FAR: vs genuine_scam **0.000 → 0.098** (chance); vs all negatives
+    **0.000 → 0.502**. Claim 1 holds (intent alone is at chance on genuine_scam), but
+    intent alone is not useless on the broad negative set.
+  - Linear fusion was hit the same way wherever its fitted weight collapsed onto intent:
+    m1×In-the-Wild gain +0.033 → −0.067 (both rules at chance). The low-SNR
+    degradation-sweep "gains" (m2×ASVspoof 5/0 dB: +0.088/+0.068) were artifacts and are now
+    ≈0 or slightly negative.
+- **Acoustic center calibrated on the wrong labels.** `oof_scores()` took the midpoint of
+  clone_scam vs *all* negatives, which include clone_benign (clone voices). The paper and
+  disclosure define `c` as the genuine-vs-clone midpoint, and the code now computes that.
+  At seed 0, the m1×ASVspoof center moves 0.244 → 0.203 and m2×In-the-Wild 0.455 → 0.408.
+
+Effect on claim 2 (bayesian − parallel, TPR@10%FAR vs genuine_scam, 8 seeds):
+
+| setting | before | after |
+|---|---|---|
+| m1 × ASVspoof | +0.122 (8/8) | +0.123 (8/8) |
+| m2 × In-the-Wild | +0.135 (8/8) | **+0.127 (6/8)** |
+| m2 × ASVspoof | −0.010 (1/8) | −0.030 (0/8) |
+| m4 × ASVspoof | −0.018 (2/8) | −0.047 (1/8) |
+| m4 × In-the-Wild | −0.031 (3/8) | −0.024 (3/8) |
+| m1 × In-the-Wild | +0.033 (8/8) | −0.067 (0/8) |
+
+The degradation-sweep peak moves from +0.171 to +0.159 (m2×ASVspoof, 15 dB). The docs also
+said bootstrap CIs "do not overlap" in both winning settings. That held only for m1×ASVspoof
+(bayesian [0.600, 0.705] vs parallel [0.422, 0.533]). For m2×In-the-Wild the single-seed
+CIs overlapped both before the fix ([0.490, 0.754] vs [0.411, 0.534]) and after it
+([0.491, 0.762] vs [0.411, 0.534]), so the docs no longer claim separation there.
+
+**Net:** claim 2 keeps its scope (a gain of about +0.12–0.13 in 2 of 4 detectors), but
+m2×In-the-Wild is now 6/8 seeds rather than 8/8, with overlapping CIs. Figures F1 and F2
+have been regenerated.
+
 ## Ready-to-paste arXiv v2 comment
 > v2: corrected an AUC tie-handling bug (intent-only baseline 0.83→0.89, other metrics
 > unchanged); expanded the evaluation to four detectors and 600 clips/source, which revised
@@ -34,3 +74,10 @@ If the filed disclosure cited +0.251 / "two detectors": the reduction-to-practic
 is **+0.122** (600 clips) and the effect is **detector-specific (2 of 4)**. Update the
 evidence and the non-obviousness framing in any continuation/amendment (see DISCLOSURE.md §7,
 §9).
+
+## Ready-to-paste comment for Correction 3
+> Fixed tie handling in TPR@FAR (intent-only baseline vs genuine_scam 0.00→0.10, vs all
+> negatives 0.00→0.50) and calibrated the acoustic center on genuine-vs-clone labels as the
+> paper describes. Multiplicative-vs-linear gain: +0.123 (m1×ASVspoof, 8/8 seeds) and +0.127
+> (m2×In-the-Wild, 6/8 seeds); scope unchanged (2 of 4 detectors), and CIs separate only for
+> m1×ASVspoof.

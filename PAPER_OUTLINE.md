@@ -21,7 +21,7 @@ that protects the multiplicative-veto idea regardless of acceptance.
   alone cannot resolve.
 - Finding 1: fusion beats either modality alone. Finding 2: a multiplicative/Bayesian
   veto beats linear fusion **specifically when the detector is informative but imperfect**
-  (8/8 seeds, two model×dataset settings); it ties when the detector is near-perfect or
+  (8/8 and 6/8 seeds, two model×dataset settings); no win when the detector is near-perfect or
   broken. Finding 3: generalization is the binding constraint and is model-dependent.
 
 ## 1. Introduction
@@ -71,7 +71,7 @@ that protects the multiplicative-veto idea regardless of acceptance.
 
 ## 6. Results
 - **§6.1 Claim 1** — fusion > single modality (Table: 4 scorers × {AUC, TPR@FAR_gs,
-  TPR@FAR_all}). The intent_only→0.000 and acoustic_only→0.425 contrast.
+  TPR@FAR_all}). The intent_only→chance (≈0.10) and acoustic_only→0.425 contrast.
 - **§6.2 Claim 2** — multiplicative > linear, with the 2×2 regime table (+0.251, +0.136,
   tie, n/a) and the non-overlapping bootstrap CIs. Lead with the boundary characterization.
 - **§6.3 Claim 3** — generalization table (mean P-synthetic by class), m2 transfers / m1

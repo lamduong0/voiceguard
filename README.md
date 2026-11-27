@@ -2,7 +2,7 @@
 
 > A multiplicative **acoustic veto** that flags AI voice-clone scams *without* crying wolf on
 > a real, panicked relative whose words happen to sound like one. Honest finding: the
-> mechanism helps, but modestly (≈+0.12–0.14 TPR@10%FAR) and in only 2 of 4 detectors tested.
+> mechanism helps, but modestly (≈+0.12–0.13 TPR@10%FAR) and in only 2 of 4 detectors tested.
 
 Research code for a paper + invention disclosure on combining an **acoustic deepfake
 detector** with an **LLM scam-intent** signal to flag AI voice-clone phone scams. The broad
@@ -24,11 +24,12 @@ words sound like a scam (`genuine_scam`) — where linear (weighted-sum) fusion 
 ## Findings (see [RESULTS.md](RESULTS.md) for numbers + CIs)
 
 1. **Fusion beats either modality alone.** Intent alone can't tell a clone-scam from a
-   real-voice scam (0.00 TPR vs `genuine_scam`); acoustic alone is weak on the broad
+   real-voice scam (chance level, ≈0.10 TPR@10%FAR vs `genuine_scam`); acoustic alone is weak on the broad
    negative set. Only fusion is strong on both axes.
-2. **Multiplicative beats linear fusion — but modestly and not universally.** A clean,
-   seed-robust win (≈+0.12–0.14 TPR@10%FAR, non-overlapping bootstrap CIs) in **2 of 4
-   detector×dataset settings**; the other two show no gain. It helps in specific
+2. **Multiplicative beats linear fusion — but modestly and not universally.** A win of
+   ≈+0.12–0.13 TPR@10%FAR in **2 of 4 detector×dataset settings** (8/8 seeds with
+   separated bootstrap CIs for m1×ASVspoof; 6/8 seeds for m2×In-the-Wild); the others show
+   no gain. It helps in specific
    detector×regime combinations with a clear mechanism, not as a general law.
 3. **Detector generalization is the binding constraint** and is model-dependent: off-the-
    shelf detectors range from chance to strong on real-world (In-the-Wild) deepfakes, and no
