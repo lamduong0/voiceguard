@@ -69,7 +69,7 @@ def test_short_recording_preserves_duration_and_skips_inference(recording):
 def test_both_models_receive_the_same_decoded_waveform(recording):
     waveform, decoder, transcriber, scorer = recording
     result = assessment.assess("call.m4a")
-    decoder.assert_called_once_with("call.m4a", mono=False)
+    decoder.assert_called_once_with("call.m4a")
     assert transcriber.call_args.args[0] is waveform
     assert scorer.score_windows.call_args.args[0] is waveform
     assert result["level"] == "HIGH"
@@ -262,32 +262,6 @@ def test_m4a_fallback_resamples_like_the_calibration_pipeline(tmp_path, channels
     assert np.max(np.abs(a[:n] - b[:n])) < 1e-3
 
 
-@pytest.mark.parametrize("fmt", ["wav", "m4a"])
-def test_load_audio_keeps_stereo_channels_on_request(tmp_path, fmt):
-    pytest.importorskip("faster_whisper.audio")
-    noise = 0.1 * np.random.default_rng(1).standard_normal((2, 16000))
-    pcm = (noise * 32767).astype(np.int16)
-    path = _write_pair(tmp_path, pcm, 16000)[fmt == "m4a"]
-    channels = detect.load_audio(path, mono=False)
-    assert channels.shape[0] == 2 and abs(channels.shape[1] - 16000) <= 1
-    n = min(channels.shape[1], 16000)
-    assert np.max(np.abs(channels[:, :n] - pcm[:, :n] / 32768)) < 1e-3
-    # a mono file stays 1-D even with mono=False
-    mono_path = _write_pair(tmp_path, pcm[:1], 16000)[fmt == "m4a"]
-    assert detect.load_audio(mono_path, mono=False).ndim == 1
-
-
-def test_distinct_channels_scores_each_speaker_once():
-    rng = np.random.default_rng(2)
-    left, right = rng.standard_normal(16000), rng.standard_normal(16000)
-    assert len(detect.distinct_channels(left)) == 1                          # mono
-    assert len(detect.distinct_channels(np.stack([left, right]))) == 2       # dual-channel call
-    same = detect.distinct_channels(np.stack([left, left]))                  # mono stored as stereo
-    assert len(same) == 1 and np.allclose(same[0], left)
-    muted = detect.distinct_channels(np.stack([left, np.zeros(16000)]))      # one side silent
-    assert len(muted) == 1 and np.allclose(muted[0], left)
-
-
 def _fake_scorer():
     # P(synthetic) of a window = its mean |amplitude|, batched like the real model
     scorer = object.__new__(detect.AcousticScorer)
@@ -296,14 +270,6 @@ def _fake_scorer():
     scorer.torch = SimpleNamespace(no_grad=contextlib.nullcontext, softmax=lambda logits, dim: logits)
     scorer.fake_idx = 1
     return scorer
-
-
-def test_stereo_takes_the_more_synthetic_channel_per_window():
-    # A clone on the caller's channel must not be diluted by the victim's genuine voice.
-    rng = np.random.default_rng(3)
-    quiet, loud = 0.1 * rng.standard_normal(48000), 0.6 * rng.standard_normal(48000)
-    scorer = _fake_scorer()
-    assert scorer.score_windows(np.stack([quiet, loud])) == scorer.score_windows(loud)
 
 
 def test_scoring_batches_cover_every_window():
@@ -326,15 +292,6 @@ def test_acoustic_score_ignores_seconds_without_speech(recording):
     transcriber.return_value = [{"t": 0.1, "end": 0.9, "text": "gift card right now"}]
     scorer.score_windows.return_value = [(0, 0.9), (1, 0.1)]   # second 1 is silence
     assert assessment.assess("call.wav")["acoustic"] == 0.9
-
-
-def test_stereo_recording_feeds_the_mix_to_asr_and_channels_to_the_detector(recording):
-    _, decoder, transcriber, scorer = recording
-    stereo = np.stack([np.full(32000, 0.1), np.full(32000, 0.3)]).astype(np.float32)
-    decoder.return_value = stereo
-    assessment.assess("call.wav")
-    assert np.allclose(transcriber.call_args.args[0], 0.2)
-    assert scorer.score_windows.call_args.args[0] is stereo
 
 
 def test_transcribe_reports_segment_ends_and_reuses_the_model(monkeypatch):
@@ -390,3 +347,39 @@ def test_llm_transcript_cannot_close_its_data_block(monkeypatch):
     assert system["role"] == "system" and "<transcript>" in system["content"]
     assert user["content"].startswith("<transcript>") and user["content"].endswith("</transcript>")
     assert user["content"].count("</transcript>") == 1
+
+
+def test_center_shift_interpolates_in_log_seconds():
+    table = {"30": 0.0, "120": 0.04}
+    assert detect.center_shift(60, table) == pytest.approx(0.02)   # halfway in log(seconds)
+    assert detect.center_shift(10, table) == 0.0 and detect.center_shift(500, table) == 0.04
+
+
+def test_long_calls_raise_the_center(recording, monkeypatch):
+    # The peak over many 30 s chunks exceeds c more often than one clip mean does, so a
+    # long call's center moves up by the packaged shift for its number of speech seconds.
+    _, decoder, _, scorer = recording
+    decoder.return_value = np.ones(62 * 16000, dtype=np.float32)
+    scorer.score_windows.return_value = [(i, 0.1 if i < 45 else 0.9) for i in range(62)]
+    monkeypatch.setattr(assessment, "load_pooling", lambda **kw: {"30": 0.0, "120": 0.1})
+    result = assessment.assess("long.wav")
+    # shift = 0.1 * ln(62/30) / ln(4) = 0.05236; clone = sigmoid(6.646 * (0.9 - 0.4102 - 0.05236))
+    assert result["center_shift"] == pytest.approx(0.0524, abs=1e-4)
+    assert result["clone_score"] == pytest.approx(0.948, abs=1e-3)
+
+
+def test_peak_mean_matches_the_checker_pooling():
+    from experiments.fit_pooling import peak_mean
+    rng = np.random.default_rng(4)
+    for n in (1, 29, 30, 31, 45, 46, 100, 333):
+        p = rng.uniform(size=n)
+        windows = [(t, float(x)) for t, x in enumerate(p)]
+        assert peak_mean(p) == pytest.approx(assessment._pool(windows, {"c": 0.4, "g": 6.0})[2])
+
+
+def test_packaged_pooling_shifts_match_the_simulation():
+    from experiments.fit_pooling import fit
+    table, _ = fit()
+    packaged = detect.load_pooling(model=assessment.M2, source="itw")
+    assert packaged == table["shifts"]
+

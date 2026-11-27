@@ -5,7 +5,8 @@ use the largest mean over overlapping 30-second chunks. This pooling rule and
 the alert thresholds still need validation on paired telephone recordings.
 """
 from voiceguard.detect import (AcousticScorer, transcribe, load_audio, load_calibration,
-                               fuse, decide, score_intent, SAMPLE_RATE, MIN_SAMPLES)
+                               load_pooling, center_shift, fuse, decide, score_intent,
+                               SAMPLE_RATE, MIN_SAMPLES)
 
 M2 = "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification"
 CHUNK_S, STRIDE_S = 30, 15
@@ -65,15 +66,14 @@ def assess(audio_path, model_size="base"):
         "intent": None, "intent_source": "none", "risk": None,
         "level": level, "advice": advice, "reasons": [],
         "duration_s": None, "frac_synthetic": None,
-        "pooling": "whole-file mean", "peak_segment": None,
+        "pooling": "whole-file mean", "peak_segment": None, "center_shift": None,
         "caveat": CAVEAT, "transcript": [],
     }
     try:
-        audio = load_audio(audio_path, mono=False)   # channels kept for per-speaker scoring
+        waveform = load_audio(audio_path)
     except (ValueError, RuntimeError, OSError, EOFError) as error:
         result["reasons"].append(f"Audio could not be decoded ({error}).")
         return result
-    waveform = audio if audio.ndim == 1 else audio.mean(0)   # ASR hears the mix
     result["duration_s"] = len(waveform) / SAMPLE_RATE
     if len(waveform) < MIN_SAMPLES:
         result["reasons"].append("Audio is shorter than the detector's 0.5-second minimum.")
@@ -91,13 +91,17 @@ def assess(audio_path, model_size="base"):
 
     windows = []
     try:
-        windows = speech_windows(_get_scorer().score_windows(audio), result["transcript"])
+        windows = speech_windows(_get_scorer().score_windows(waveform), result["transcript"])
     except (ValueError, RuntimeError, OSError) as error:
         result["reasons"].append(f"Acoustic scoring failed ({error}).")
     if not windows:
         result["reasons"].append("No usable acoustic windows are available.")
         return result
 
+    # Long calls: the peak over many chunks exceeds c more often than a clip mean does.
+    shift = center_shift(len(windows), load_pooling(model=M2, source="itw"))
+    cal = {**cal, "c": round(cal["c"] + shift, 4)}
+    result["calibration"], result["center_shift"] = cal, round(shift, 4)
     start, end, acoustic, clone_score, overall, frac_high = _pool(windows, cal)
     risk, _ = fuse(acoustic, intent, cal)
     result.update(

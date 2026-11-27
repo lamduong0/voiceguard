@@ -27,5 +27,28 @@
       "mean_genuine": 0.202,
       "mean_clone": 0.619
     }
+  ],
+  "pooling": [
+    {
+      "model": "Gustking/wav2vec2-large-xlsr-deepfake-audio-classification",
+      "source": "itw",
+      "data_path": "data/events_m2_600.json",
+      "data_sha256": "749427110aff9c8a3b908d404abe257daa110d5b399840c21b76980c6c6f5ffd",
+      "statistic": "center shift keeping a simulated genuine call's peak-chunk exceedance of c at the genuine clip rate",
+      "target_exceedance": 0.0983,
+      "caller_share": 0.6,
+      "n_sim": 2000,
+      "seed": 0,
+      "shifts": {
+        "10": 0.0,
+        "30": 0.0,
+        "60": 0.0,
+        "120": 0.0269,
+        "240": 0.0362,
+        "480": 0.0614,
+        "960": 0.0861
+      },
+      "version": 1
+    }
   ]
 }
